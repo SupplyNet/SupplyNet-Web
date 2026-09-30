@@ -2,7 +2,7 @@ from flask import request, render_template, redirect, url_for, Blueprint, flash
 from flask_login import login_user, logout_user, current_user, login_required
 import os
 from sn_app.app import db, bcrypt
-from sn_app.blueprints.auth.models import Employee, Note
+from sn_app.blueprints.auth.models import   User, Note
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 
@@ -15,61 +15,70 @@ def index():
 
 
 # You can set this in your app config or environment variables (e.g., SECRET_COMPANY_CODE="KATARIA2026")
-REQUIRED_COMPANY_CODE = os.environ.get('COMPANY_SIGNUP_CODE', 'KATARIA2026')
 
-@auth.route('/signup', methods=['GET', 'POST'])
+
+@auth.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == 'GET':
-        return render_template('auth/signup.html')
+    if request.method == "GET":
+        return render_template("auth/signup.html")
 
-    company_code = request.form.get('company_code')
-    username = request.form.get('username')
-    password = request.form.get('password')
-    full_name = request.form.get('full_name', username)
+    enterprise_name = request.form.get("enterprise_name")
+    email = request.form.get("email")
+    password = request.form.get("password")
+    name = request.form.get("name")
+    role = request.form.get("role", "employee")  # Default role if not provided
 
-    # 1. Validate Company Code
-    if not company_code or company_code != REQUIRED_COMPANY_CODE:
-        flash('Invalid Company Passcode. Registration restricted.', 'danger')
-        return redirect(url_for('auth.signup'))
+    # 1. Basic validation for required fields
+    if not email or not password or not name:
+        flash("Please fill in all required fields.", "danger")
+        return redirect(url_for("auth.signup"))
 
-    # 2. Check for existing employee username
-    if Employee.query.filter_by(username=username).first():
-        flash('Username already exists. Please choose another.', 'danger')
-        return redirect(url_for('auth.signup'))
+    # 2. Check for existing user by email
+    if User.query.filter_by(email=email.lower().strip()).first():
+        flash("Email is already registered. Please log in or use another email.", "danger")
+        return redirect(url_for("auth.signup"))
 
-    # 3. Hash password and save new employee record
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_employee = Employee(
-        username=username,
+    # 3. Hash password and save new user record
+    hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+    new_user = User(
+        name=name,
+        email=email.lower().strip(),
         password_hash=hashed_password,
-        full_name=full_name
+        role=role,
+        enterprise_name=enterprise_name,
     )
 
-    db.session.add(new_employee)
+    db.session.add(new_user)
     db.session.commit()
 
-    flash('Account created successfully! Please log in.', 'success')
-    return redirect(url_for('auth.login'))
+    flash("Account created successfully! Please log in.", "success")
+    return redirect(url_for("auth.login"))
 
-@auth.route('/login', methods=['GET', 'POST'])
+@auth.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == 'GET':
-        return render_template('auth/login.html')
+    if request.method == "GET":
+        return render_template("auth/login.html")
 
-    username = request.form.get('username')
-    password = request.form.get('password')
+    email = request.form.get("email")
+    password = request.form.get("password")
 
-    employee = Employee.query.filter_by(username=username).first()
+    # Basic input check
+    if not email or not password:
+        flash("Please enter both email and password.", "danger")
+        return redirect(url_for("auth.login"))
 
-    # Validate against password_hash column
-    if employee and bcrypt.check_password_hash(employee.password_hash, password):
-        login_user(employee)
-        flash(f'Welcome back, {employee.full_name}!', 'success')
-        return redirect(url_for('auth.dashboard'))
+    # Fetch user by email (normalized to lowercase)
+    user = User.query.filter_by(email=email.lower().strip()).first()
 
-    flash('Invalid username or password', 'danger')
-    return redirect(url_for('auth.login'))
+    # Validate user credentials
+    if user and bcrypt.check_password_hash(user.password_hash, password):
+        login_user(user)
+        flash(f"Welcome back, {user.name}!", "success")
+        return redirect(url_for("auth.dashboard"))
 
+    # Generic error message to prevent email enumeration
+    flash("Invalid email or password.", "danger")
+    return redirect(url_for("auth.login"))
 
 @auth.route('/logout')
 @login_required

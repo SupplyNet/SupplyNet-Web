@@ -18,7 +18,7 @@ def create_app():
     db_password = quote_plus(os.getenv("DB_PASSWORD", ""))
     app.config['SQLALCHEMY_DATABASE_URI'] = (
     f'mysql+pymysql://avnadmin:{db_password}'
-    f'@mysql-385dcef2-priyamjainofficial-5a14.a.aivencloud.com:25845/hrdb')
+    f'@mysql-385dcef2-priyamjainofficial-5a14.a.aivencloud.com:25845/sndb')
     app.config['SECRET_KEY'] = 'some-secret-key'
     
     db.init_app(app)
@@ -29,12 +29,12 @@ def create_app():
     from sn_app.blueprints.core.routes import core
     from sn_app.blueprints.auth.routes import auth
     
-    from sn_app.blueprints.auth.models import Employee
+    from sn_app.blueprints.auth.models import User
     from sn_app.blueprints.auth.models import Note
     
     @login_manager.user_loader
     def load_user(eid):
-        return Employee.query.get(eid)
+        return User.query.get(eid)
     
 
     app.register_blueprint(core, url_prefix='/')

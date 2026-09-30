@@ -5,10 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SupplyNet — Autonomous Fleet Route & Disruption Intelligence{% endblock %}</title>
-    <!-- Modern Typography: Inter & Plus Jakarta Sans -->
+
+    <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,22 +32,10 @@
                             300: '#7dd3fc',
                             400: '#38bdf8',
                             500: '#0ea5e9',
-                            600: '#0284c7', // Primary Brand Electric Blue
+                            600: '#0284c7', // Brand Primary
                             700: '#0369a1',
                             800: '#075985',
                             900: '#0c4a6e',
-                        },
-                        kataria: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            500: '#0ea5e9',
-                            600: '#0284c7', // Backwards compatibility for auth pages
-                            700: '#0369a1',
-                        },
-                        fleet: {
-                            dark: '#0b1329',
-                            card: '#0f172a',
-                            border: '#1e293b'
                         }
                     }
                 }
@@ -51,8 +43,21 @@
         }
     </script>
     <style>
-        .glow-subtle {
-            box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.15);
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
     {% block head_content %}{% endblock %}
@@ -61,326 +66,368 @@
 <body
     class="bg-slate-50/70 text-slate-900 font-sans antialiased flex flex-col min-h-screen selection:bg-supply-600 selection:text-white">
 
-    <!-- Header Navigation (Glassmorphic + Dynamic Fleet Route Context) -->
-    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-50 transition-all duration-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16 sm:h-20">
+    <!-- HEADER NAVIGATION (GLASSMORPHIC LIGHT TOP BAR) -->
+    <header
+        class="bg-white/90 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-50 h-16 sm:h-20 transition-all duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+            <div class="flex items-center justify-between h-full">
 
-                <!-- Brand Logo & Positioning -->
-                <a href="{% if current_user.is_authenticated %}{{ url_for('auth.dashboard') }}{% else %}{{ url_for('core.index') }}{% endif %}"
-                    class="flex items-center space-x-3.5 group">
-                    <div
-                        class="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-900 via-supply-700 to-supply-500 text-white flex items-center justify-center shadow-md shadow-supply-500/20 group-hover:scale-105 group-hover:shadow-supply-500/30 transition-all duration-200">
-                        <!-- Interconnected Routing Network Nodes SVG -->
-                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-                            <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
-                            <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
-                            <line x1="9" y1="10.5" x2="15" y2="13.5" stroke-dasharray="2 2" />
+                <!-- Left Group: Brand Logo & Mobile/Sidebar Menu Button -->
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    {% if current_user.is_authenticated %}
+                    <!-- Sidebar Toggle Button (Desktop & Mobile Drawer Trigger) -->
+                    <button id="mobile-menu-btn" type="button"
+                        class="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none border border-slate-200/80 shadow-sm"
+                        aria-label="Toggle Navigation Drawer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h7" />
                         </svg>
-                    </div>
-                    <div class="flex flex-col">
+                    </button>
+                    {% else %}
+                    <!-- Guest Mobile Menu Toggle -->
+                    <button id="mobile-menu-btn" type="button"
+                        class="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none border border-slate-200/80 shadow-sm"
+                        aria-label="Toggle Mobile Menu">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                    </button>
+                    {% endif %}
+
+                    <!-- Brand Logo -->
+                    <a href="{% if current_user.is_authenticated %}{{ url_for('auth.dashboard') }}{% else %}{{ url_for('core.index') }}{% endif %}"
+                        class="flex items-center space-x-3 group">
+                        <div
+                            class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-slate-900 via-supply-700 to-supply-600 text-white flex items-center justify-center shadow-md shadow-supply-500/20 group-hover:scale-105 transition-all duration-200">
+                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
+                                <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
+                                <line x1="9" y1="10.5" x2="15" y2="13.5" stroke-dasharray="2 2" />
+                            </svg>
+                        </div>
                         <div class="flex items-center space-x-2">
-                            <span class="font-extrabold text-lg tracking-tight text-slate-900 font-display">
+                            <span
+                                class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 font-display">
                                 SUPPLY<span class="text-supply-600">NET</span>
                             </span>
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-supply-50 text-supply-700 border border-supply-200/60 uppercase tracking-wide">
+                            <span
+                                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-supply-50 text-supply-700 border border-supply-200/80 uppercase tracking-wider font-mono">
                                 OSRM + AI
                             </span>
                         </div>
-                        <span class="text-[11px] text-slate-500 font-medium hidden sm:inline-block leading-tight">
-                            Dynamic Fleet Rerouting & Disruption Radar
-                        </span>
-                    </div>
-                </a>
+                    </a>
+                </div>
 
-                {% if current_user.is_authenticated %}
-                <!-- ==================== AUTHENTICATED HEADER ==================== -->
-                <!-- Desktop Navigation Links -->
-                <nav class="hidden lg:flex items-center space-x-1">
-                    <a href="{{ url_for('auth.dashboard') }}"
-                        class="text-slate-700 hover:text-supply-600 hover:bg-supply-50/70 px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        Fleet Dashboard
-                    </a>
-                    <a href="{{ url_for('core.index') }}#reroute-demo"
-                        class="text-slate-700 hover:text-supply-600 hover:bg-supply-50/70 px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                        Active Trips & OSRM
-                    </a>
-                    <a href="{{ url_for('core.index') }}#disruptions"
-                        class="text-slate-700 hover:text-supply-600 hover:bg-supply-50/70 px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                        </span>
-                        Disruption Radar
-                    </a>
-                    <a href="{{ url_for('core.index') }}#agent-architecture"
-                        class="text-slate-700 hover:text-supply-600 hover:bg-supply-50/70 px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Agent Decision Engine
-                    </a>
-                </nav>
-
-                <!-- Search & Profile Controls -->
-                <div class="hidden md:flex items-center space-x-4">
-                    <!-- Global Fleet Search -->
-                    <div class="relative">
-                        <input type="text" placeholder="Search Truck ID, Route, City (e.g. TRK-1002)..."
-                            class="w-56 focus:w-72 transition-all duration-200 bg-slate-100/90 text-xs text-slate-800 placeholder-slate-400 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-supply-500/20 focus:bg-white border border-slate-200/80">
-                        <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
+                <!-- Right Navigation Group -->
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    {% if current_user.is_authenticated %}
+                    <!-- Search Input (Authenticated) -->
+                    <div class="hidden md:relative md:block">
+                        <input type="text" placeholder="Search truck, route..."
+                            class="w-48 focus:w-60 transition-all duration-200 bg-slate-100/90 text-xs text-slate-800 placeholder-slate-400 rounded-xl pl-8 pr-3 py-2 border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-supply-500/20 focus:border-supply-500 focus:bg-white">
+                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
 
-                    <!-- Dispatcher Profile Info -->
-                    <div class="flex items-center space-x-3 border-l border-slate-200/80 pl-4">
-                        <div class="flex items-center space-x-2.5">
+                    <!-- User Profile & Account Action -->
+                    <div class="flex items-center space-x-3 pl-2 sm:pl-3 border-l border-slate-200/90">
+                        <div class="flex items-center space-x-2">
                             <div
-                                class="w-8 h-8 rounded-lg bg-gradient-to-br from-supply-600 to-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                                class="w-8 h-8 rounded-lg bg-gradient-to-br from-supply-600 to-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-sm">
                                 {{ current_user.username[0]|upper if current_user.username else 'D' }}
                             </div>
-                            <div class="flex flex-col text-left">
-                                <span class="text-xs text-slate-900 font-semibold leading-tight">
-                                    {{ current_user.full_name or current_user.username }}
-                                </span>
-                                <span class="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Fleet Dispatcher
-                                </span>
-                            </div>
+                            <span class="text-xs text-slate-900 font-semibold hidden sm:inline-block font-sans">
+                                {{ current_user.full_name or current_user.username }}
+                            </span>
                         </div>
                         <a href="{{ url_for('auth.logout') }}"
                             class="text-xs text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200/90 hover:border-rose-200 px-3 py-1.5 rounded-lg font-medium transition duration-150">
                             Logout
                         </a>
                     </div>
-                </div>
 
-                {% else %}
-                <!-- ==================== GUEST HEADER ==================== -->
-                <!-- Desktop Navigation -->
-                <nav class="hidden md:flex items-center space-x-1 lg:space-x-2">
-                    <a href="{{ url_for('core.index') }}#reroute-demo"
-                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 px-3 py-2 rounded-lg text-xs font-semibold transition">
-                        Live Detour Demo
-                    </a>
-                    <a href="{{ url_for('core.index') }}#architecture"
-                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 px-3 py-2 rounded-lg text-xs font-semibold transition">
-                        Multi-Agent Engine
-                    </a>
-                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 px-3 py-2 rounded-lg text-xs font-semibold transition">
-                        PostGIS Spatial
-                    </a>
-                    <a href="{{ url_for('core.index') }}#enterprise"
-                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 px-3 py-2 rounded-lg text-xs font-semibold transition">
-                        Enterprise Fleets
-                    </a>
-                </nav>
+                    {% else %}
+                    <!-- Guest Top Nav Links -->
+                    <nav class="hidden lg:flex items-center space-x-1">
+                        <a href="{{ url_for('core.index') }}#reroute-demo"
+                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                            Live Detour Demo
+                        </a>
+                        <a href="{{ url_for('core.index') }}#architecture"
+                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                            Multi-Agent Engine
+                        </a>
+                        <a href="{{ url_for('core.index') }}#spatial-pipeline"
+                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                            PostGIS Spatial
+                        </a>
+                    </nav>
 
-                <!-- Auth Action Buttons -->
-                <div class="hidden md:flex items-center space-x-3">
-                    <a href="{{ url_for('auth.login') }}"
-                        class="text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 px-3.5 py-2 rounded-lg text-xs font-semibold transition">
-                        Sign In
-                    </a>
-                    <a href="{{ url_for('auth.signup') }}"
-                        class="bg-slate-900 hover:bg-supply-600 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all duration-200 flex items-center gap-1.5 hover:shadow-supply-500/20">
-                        <span>Launch Console</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </a>
-                </div>
-                {% endif %}
-
-                <!-- Mobile Hamburger Button -->
-                <button id="mobile-menu-btn" type="button"
-                    class="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none"
-                    aria-label="Toggle Navigation Menu">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Dynamic Mobile Drawer Menu -->
-        <div id="mobile-menu" class="hidden md:hidden border-b border-slate-200/80 bg-white px-4 pt-3 pb-6 space-y-2 shadow-lg">
-            {% if current_user.is_authenticated %}
-            <!-- Authenticated Mobile Drawer -->
-            <div class="pb-3 border-b border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-                <div class="flex items-center space-x-2.5">
-                    <div
-                        class="w-7 h-7 rounded-lg bg-supply-600 text-white flex items-center justify-center font-bold text-xs">
-                        {{ current_user.username[0]|upper if current_user.username else 'D' }}
+                    <div class="flex items-center space-x-2">
+                        <a href="{{ url_for('auth.login') }}"
+                            class="text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                            Sign In
+                        </a>
+                        <a href="{{ url_for('auth.signup') }}"
+                            class="bg-slate-900 hover:bg-supply-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all duration-200 hover:shadow-supply-500/20">
+                            Launch Console
+                        </a>
                     </div>
-                    <span class="text-slate-900 font-semibold">{{ current_user.username }}</span>
+                    {% endif %}
                 </div>
-                <span class="text-emerald-700 font-medium text-[11px] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active Dispatcher
-                </span>
+
             </div>
-            <a href="{{ url_for('auth.dashboard') }}"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Fleet Dashboard</a>
-            <a href="{{ url_for('core.index') }}#reroute-demo"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Active Trips & Detours</a>
-            <a href="{{ url_for('core.index') }}#disruptions"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Disruption Radar</a>
-            <a href="{{ url_for('core.index') }}#agent-architecture"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Multi-Agent State</a>
-            <a href="{{ url_for('auth.logout') }}"
-                class="block w-full text-center mt-3 px-4 py-2.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-medium text-xs">Sign Out</a>
-            {% else %}
-            <!-- Guest Mobile Drawer -->
-            <a href="{{ url_for('core.index') }}#reroute-demo"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Live Detour Demo</a>
-            <a href="{{ url_for('core.index') }}#architecture"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Multi-Agent Engine</a>
-            <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">PostGIS Geofencing</a>
-            <a href="{{ url_for('core.index') }}#enterprise"
-                class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-supply-50 hover:text-supply-700">Enterprise Fleet Specs</a>
-            <div class="pt-3 border-t border-slate-100 space-y-2">
-                <a href="{{ url_for('auth.login') }}"
-                    class="block w-full text-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100/80">Sign In</a>
-                <a href="{{ url_for('auth.signup') }}"
-                    class="block w-full text-center px-4 py-2.5 rounded-lg bg-slate-900 text-white font-semibold text-xs shadow-sm hover:bg-supply-600">Launch Fleet Console</a>
-            </div>
-            {% endif %}
         </div>
     </header>
 
-    <!-- Main Content Container with Flash Alerts -->
-    <main class="flex-grow">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            {% for category, message in messages %}
-            <div
-                class="mb-4 p-3.5 rounded-xl border text-xs sm:text-sm font-medium flex items-center justify-between shadow-sm {% if category == 'danger' or category == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% elif category == 'success' %}bg-emerald-50/70 border-emerald-200 text-emerald-900{% elif category == 'warning' %}bg-amber-50/70 border-amber-200 text-amber-900{% else %}bg-supply-50/70 border-supply-200 text-supply-900{% endif %}">
-                <div class="flex items-center space-x-2">
-                    <span class="w-2 h-2 rounded-full {% if category == 'danger' or category == 'error' %}bg-rose-500{% elif category == 'success' %}bg-emerald-500{% elif category == 'warning' %}bg-amber-500{% else %}bg-supply-500{% endif %}"></span>
-                    <span>{{ message }}</span>
+    <!-- MOBILE/OFF-CANVAS BACKDROP OVERLAY -->
+    <div id="mobile-backdrop"
+        class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden transition-opacity duration-200"></div>
+
+    <!-- MAIN CONTAINER LAYOUT -->
+    <div class="flex-grow flex relative max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+
+        {% if current_user.is_authenticated %}
+        <!-- AUTHENTICATED SIDEBAR NAVIGATION (MODERN LIGHT CARD STYLE) -->
+        <aside id="app-sidebar"
+            class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/95 lg:bg-white border-r lg:border border-slate-200/90 rounded-none lg:rounded-2xl p-4 mr-0 lg:mr-6 shadow-2xl lg:shadow-sm flex flex-col justify-between shrink-0 h-full lg:h-[calc(100vh-6.5rem)] transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out custom-scrollbar overflow-y-auto">
+
+            <div class="space-y-6">
+                <!-- Mobile Header inside Drawer -->
+                <div class="flex lg:hidden items-center justify-between pb-3 border-b border-slate-100">
+                    <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">Navigation</span>
+                    <button id="close-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Operations Section -->
+                <div class="space-y-1.5">
+                    <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Operations
+                    </p>
+
+                    <a href="{{ url_for('auth.dashboard') }}"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm transition">
+                        <svg class="w-4 h-4 text-supply-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        <span>Fleet Dashboard</span>
+                    </a>
+
+                    <a href="{{ url_for('core.index') }}#reroute-demo"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-supply-600 transition" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        <span>Active Trips & OSRM</span>
+                    </a>
+
+                    <a href="{{ url_for('core.index') }}#disruptions"
+                        class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-4 h-4 text-amber-500 group-hover:scale-110 transition" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>Disruption Radar</span>
+                        </div>
+                        <span class="relative flex h-2 w-2">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Intelligence Stack Section -->
+                <div class="space-y-1.5">
+                    <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Intelligence
+                        Stack</p>
+
+                    <a href="{{ url_for('core.index') }}#agent-architecture"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-purple-50/80 hover:text-purple-700 transition group">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>Agent Decision Engine</span>
+                    </a>
+
+                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        <span>PostGIS Spatial Logs</span>
+                    </a>
                 </div>
             </div>
-            {% endfor %}
+
+            <!-- Operational Status Indicator -->
+            <div class="pt-3 border-t border-slate-100 mt-6">
+                <div
+                    class="px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 text-[11px] font-mono flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>OSRM MLD Active</span>
+                    </div>
+                    <span class="text-[10px] text-emerald-600 font-sans font-semibold">PostGIS 3.4</span>
+                </div>
+            </div>
+        </aside>
+
+        {% else %}
+        <!-- UNAUTHENTICATED GUEST MOBILE DRAWER -->
+        <div id="guest-drawer"
+            class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 p-5 shadow-2xl flex flex-col justify-between transform -translate-x-full lg:hidden transition-transform duration-200 ease-in-out">
+            <div class="space-y-6">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">SupplyNet</span>
+                    <button id="close-guest-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <nav class="space-y-1.5">
+                    <a href="{{ url_for('core.index') }}#reroute-demo"
+                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Live
+                        Detour Demo</a>
+                    <a href="{{ url_for('core.index') }}#architecture"
+                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Multi-Agent
+                        Engine</a>
+                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
+                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">PostGIS
+                        Spatial</a>
+                </nav>
+            </div>
+
+            <div class="space-y-2 pt-4 border-t border-slate-100">
+                <a href="{{ url_for('auth.login') }}"
+                    class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">Sign
+                    In</a>
+                <a href="{{ url_for('auth.signup') }}"
+                    class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-supply-600 hover:bg-supply-700 shadow-sm transition">Launch
+                    Console</a>
+            </div>
         </div>
         {% endif %}
-        {% endwith %}
 
-        {% block content %}{% endblock %}
-    </main>
+        <!-- MAIN PAGE CONTENT AREA -->
+        <main class="flex-grow min-w-0 pb-10">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="mb-4 space-y-2">
+                {% for category, message in messages %}
+                <div
+                    class="p-3.5 rounded-xl border text-xs sm:text-sm font-medium flex items-center justify-between shadow-sm {% if category == 'danger' or category == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% elif category == 'success' %}bg-emerald-50/70 border-emerald-200 text-emerald-900{% elif category == 'warning' %}bg-amber-50/70 border-amber-200 text-amber-900{% else %}bg-supply-50/70 border-supply-200 text-supply-900{% endif %}">
+                    <div class="flex items-center space-x-2">
+                        <span
+                            class="w-2 h-2 rounded-full {% if category == 'danger' or category == 'error' %}bg-rose-500{% elif category == 'success' %}bg-emerald-500{% elif category == 'warning' %}bg-amber-500{% else %}bg-supply-500{% endif %}"></span>
+                        <span>{{ message }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
 
-    <!-- Rich Enterprise Supply Chain Footer -->
-    <footer class="bg-slate-900 text-slate-300 border-t border-slate-800 pt-12 pb-8 mt-16">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <!-- CLEAN DARK-SLATE FOOTER -->
+    <footer class="bg-slate-900 text-slate-300 border-t border-slate-800 pt-10 pb-8 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-10 border-b border-slate-800/80">
+            <div class="flex flex-col sm:flex-row items-center justify-between pb-6 border-b border-slate-800 gap-4">
 
-                <!-- Brand & Mission Info -->
-                <div class="lg:col-span-2 space-y-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-supply-600 to-supply-400 text-white flex items-center justify-center font-bold text-xs shadow-md">
-                            <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-                                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
-                                <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
-                            </svg>
-                        </div>
-                        <span class="font-extrabold text-lg tracking-tight text-white font-display">
-                            SUPPLY<span class="text-supply-400">NET</span>
-                        </span>
+                <!-- Left Branding -->
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-900 to-supply-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                        </svg>
                     </div>
-                    <p class="text-xs text-slate-400 leading-relaxed max-w-sm">
-                        Enterprise-grade Autonomous Fleet Rerouting & Geospatial Disruption Intelligence. Seamlessly binding Open Source Routing Machine (OSRM), PostGIS spatial polygons, and multi-agent LLM reasoning to ensure zero truck downtime.
-                    </p>
-                    <div class="flex items-center space-x-2 pt-2">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-slate-800 text-emerald-400 border border-slate-700">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            OSRM MLD Engine: Active
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-slate-800 text-supply-400 border border-slate-700">
-                            PostGIS 3.4 Connected
-                        </span>
-                    </div>
+                    <span class="font-extrabold text-base tracking-tight text-white font-display">
+                        SUPPLY<span class="text-supply-400">NET</span>
+                    </span>
+                    <span class="text-xs text-slate-400 hidden sm:inline-block">| Autonomous Fleet Route & Disruption
+                        Intelligence</span>
                 </div>
 
-                <!-- Column 1: Core Routing Tech -->
-                <div class="space-y-3">
-                    <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Routing Tech</h3>
-                    <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="#reroute-demo" class="hover:text-supply-400 transition">OSRM Micro-Detours</a></li>
-                        <li><a href="#spatial-pipeline" class="hover:text-supply-400 transition">PostGIS ST_Intersects</a></li>
-                        <li><a href="#reroute-demo" class="hover:text-supply-400 transition">Intermediate Waypoints</a></li>
-                        <li><a href="#spatial-pipeline" class="hover:text-supply-400 transition">Multi-Level Dijkstra (MLD)</a></li>
-                        <li><a href="#spatial-pipeline" class="hover:text-supply-400 transition">Custom Exclusion Zones</a></li>
-                    </ul>
+                <!-- Footer Quick Links -->
+                <div class="flex items-center space-x-4 text-xs text-slate-400">
+                    <a href="#reroute-demo" class="hover:text-supply-400 transition">OSRM Detours</a>
+                    <a href="#architecture" class="hover:text-supply-400 transition">Multi-Agent Engine</a>
+                    <a href="#spatial-pipeline" class="hover:text-supply-400 transition">PostGIS Spatial</a>
                 </div>
-
-                <!-- Column 2: Multi-Agent Engine -->
-                <div class="space-y-3">
-                    <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Agentic Stack</h3>
-                    <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="#agent-architecture" class="hover:text-supply-400 transition">Monitoring Agent (Telemetry)</a></li>
-                        <li><a href="#agent-architecture" class="hover:text-supply-400 transition">Supervisor Node (State Queue)</a></li>
-                        <li><a href="#agent-architecture" class="hover:text-supply-400 transition">Planner Agent (Soft Constraints)</a></li>
-                        <li><a href="#agent-architecture" class="hover:text-supply-400 transition">Hard Constraint Guardrails</a></li>
-                        <li><a href="#agent-architecture" class="hover:text-supply-400 transition">Critique Evaluator Agent</a></li>
-                    </ul>
-                </div>
-
-                <!-- Column 3: Telemetry & Platform -->
-                <div class="space-y-3">
-                    <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Telemetry & DB</h3>
-                    <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="#architecture" class="hover:text-supply-400 transition">Redis 30s GPS Cache</a></li>
-                        <li><a href="#architecture" class="hover:text-supply-400 transition">Multi-Tenant Enterprises</a></li>
-                        <li><a href="#architecture" class="hover:text-supply-400 transition">Temporal ETA Matching</a></li>
-                        <li><a href="#architecture" class="hover:text-supply-400 transition">RAG / Advisory Ingestion</a></li>
-                        <li><a href="{% if current_user.is_authenticated %}{{ url_for('auth.dashboard') }}{% else %}{{ url_for('auth.login') }}{% endif %}" class="hover:text-supply-400 transition">Dispatcher Console</a></li>
-                    </ul>
-                </div>
-
             </div>
 
-            <!-- Footer Bottom Line -->
-            <div class="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3 text-center sm:text-left">
-                <p>&copy; {{ current_year if current_year else '2026' }} SupplyNet Technologies. Multi-Enterprise Fleet Route Optimization.</p>
-                <div class="flex items-center space-x-4 font-mono text-[11px] text-slate-400">
-                    <span class="flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        Cluster Status: Operational
+            <!-- Footer Bottom -->
+            <div class="pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+                <p>&copy; {{ current_year if current_year else '2026' }} SupplyNet Technologies. All rights reserved.
+                </p>
+                <div class="flex items-center space-x-3 font-mono text-[11px]">
+                    <span class="flex items-center gap-1.5 text-emerald-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Cluster Operational
                     </span>
-                    <span>•</span>
-                    <span>Cost Function: w1·Dur + w2·Dist + w3·Toll</span>
                 </div>
             </div>
         </div>
     </footer>
 
-    <!-- Mobile Drawer Script -->
+    <!-- INTERACTIVE RESPONSIVE DRAWER SCRIPT -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const btn = document.getElementById('mobile-menu-btn');
-            const menu = document.getElementById('mobile-menu');
-            if (btn && menu) {
-                btn.addEventListener('click', () => {
-                    menu.classList.toggle('hidden');
-                });
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const closeBtn = document.getElementById('close-drawer-btn');
+            const closeGuestBtn = document.getElementById('close-guest-drawer-btn');
+            const sidebar = document.getElementById('app-sidebar');
+            const guestDrawer = document.getElementById('guest-drawer');
+            const backdrop = document.getElementById('mobile-backdrop');
+
+            function openDrawer() {
+                const target = sidebar || guestDrawer;
+                if (target) target.classList.remove('-translate-x-full');
+                if (backdrop) backdrop.classList.remove('hidden');
             }
+
+            function closeDrawer() {
+                const target = sidebar || guestDrawer;
+                if (target) target.classList.add('-translate-x-full');
+                if (backdrop) backdrop.classList.add('hidden');
+            }
+
+            if (menuBtn) menuBtn.addEventListener('click', openDrawer);
+            if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+            if (closeGuestBtn) closeGuestBtn.addEventListener('click', closeDrawer);
+            if (backdrop) backdrop.addEventListener('click', closeDrawer);
         });
     </script>
     {% block scripts %}{% endblock %}
 </body>
 
-</html>
+</html>

@@ -19,7 +19,7 @@ def create_app():
 
     # 4. Import the User model *after* db and login_manager are initialized
     # You should generally define a User model file at a place accessible by both
-    from hr_app.blueprints.users.models import User
+    from sn_app.blueprints.users.models import User
     
     @login_manager.user_loader
     def load_user(uid):
@@ -28,10 +28,10 @@ def create_app():
 
     # 5. Import and register Blueprints
     # Importing routes here is a common way to register the blueprints.
-    from hr_app.blueprints.core.routes import core
-    from hr_app.blueprints.todos.routes import todos
-    from hr_app.blueprints.people.routes import people
-    from hr_app.blueprints.users.routes import users
+    from sn_app.blueprints.core.routes import core
+    from sn_app.blueprints.todos.routes import todos
+    from sn_app.blueprints.people.routes import people
+    from sn_app.blueprints.users.routes import users
     
     # Register blueprints (bcrypt is NOT passed here)
     app.register_blueprint(core, url_prefix='/')
