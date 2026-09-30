@@ -1,0 +1,283 @@
+Based on your setup, the provided relational schema, and the multi-agent system architecture detailed in your attached document, here is the complete SQLAlchemy Python data model layer.
+
+It bridges your existing `User` / `Employee` model with all the required fleet entities (`Truck`, `Shipment`, `CargoDocument`, `Route`, `GPSUpdate`, `Disruption`, `TripCityCheckpoint`, and `RerouteLog`).
+
+---
+
+### Updated Models (`models.py`)
+
+```python
+import uuid
+from datetime import datetime, timezone
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+db = SQLAlchemy()
+
+# ----------------------------------------------------------------------
+# 1. USER / ENTERPRISE ACCOUNT MODEL
+# ----------------------------------------------------------------------
+class User(db.Model, UserMixin):
+    __tablename__ = "users"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(50), nullable=False, default="employee")
+    enterprise_name = db.Column(db.String(150), nullable=True)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    trucks = db.relationship("Truck", backref="user", lazy=True, cascade="all, delete-orphan")
+    shipments = db.relationship("Shipment", backref="user", lazy=True, cascade="all, delete-orphan")
+
+    def get_id(self):
+        return str(self.id)
+
+
+# ----------------------------------------------------------------------
+# 2. TRUCK / VEHICLE MODEL
+# ----------------------------------------------------------------------
+class Truck(db.Model):
+    __tablename__ = "trucks"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    registration_number = db.Column(db.String(50), unique=True, nullable=False)
+    transporter_id = db.Column(db.String(50), nullable=True)
+    vehicle_category = db.Column(db.String(50), nullable=True)
+    body_type = db.Column(db.String(50), nullable=True)
+    gvw_kg = db.Column(db.Numeric(10, 2), nullable=True)
+    axle_count = db.Column(db.Integer, nullable=True)
+    length_m = db.Column(db.Numeric(6, 2), nullable=True)
+    width_m = db.Column(db.Numeric(6, 2), nullable=True)
+    height_m = db.Column(db.Numeric(6, 2), nullable=True)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    shipments = db.relationship("Shipment", backref="truck", lazy=True)
+    gps_updates = db.relationship("GPSUpdate", backref="truck", lazy=True, cascade="all, delete-orphan")
+
+
+# ----------------------------------------------------------------------
+# 3. SHIPMENT MODEL
+# ----------------------------------------------------------------------
+class Shipment(db.Model):
+    __tablename__ = "shipments"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    truck_id = db.Column(UUID(as_uuid=True), db.ForeignKey("trucks.id"), nullable=False)
+
+    # Cargo Specific Details
+    cargo_type = db.Column(db.String(100), nullable=True)
+    total_weight_kg = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Origin & Destination Coordinates & Postal Codes
+    origin_lat = db.Column(db.Numeric(10, 7), nullable=False)
+    origin_lon = db.Column(db.Numeric(10, 7), nullable=False)
+    destination_lat = db.Column(db.Numeric(10, 7), nullable=False)
+    destination_lon = db.Column(db.Numeric(10, 7), nullable=False)
+    origin_pin = db.Column(db.String(20), nullable=True)
+    destination_pin = db.Column(db.String(20), nullable=True)
+
+    planned_eta = db.Column(db.DateTime, nullable=True)
+    priority = db.Column(db.String(50), default="MEDIUM")
+    status = db.Column(db.String(50), default="CREATED")  # CREATED, EN_ROUTE, DELAYED, REROUTED, DELIVERED
+
+    consignment_value = db.Column(db.Numeric(12, 2), nullable=True)
+    currency = db.Column(db.String(10), default="INR")
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    cargo_documents = db.relationship("CargoDocument", backref="shipment", cascade="all, delete-orphan", uselist=False)
+    routes = db.relationship("Route", backref="shipment", lazy=True, cascade="all, delete-orphan")
+    gps_updates = db.relationship("GPSUpdate", backref="shipment", lazy=True, cascade="all, delete-orphan")
+    checkpoints = db.relationship("TripCityCheckpoint", backref="shipment", lazy=True, cascade="all, delete-orphan")
+    reroute_logs = db.relationship("RerouteLog", backref="shipment", lazy=True, cascade="all, delete-orphan")
+
+
+# ----------------------------------------------------------------------
+# 4. CARGO DOCUMENTATION MODEL
+# ----------------------------------------------------------------------
+class CargoDocument(db.Model):
+    __tablename__ = "cargo_documents"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False)
+
+    supplier_gstin = db.Column(db.String(20), nullable=True)
+    recipient_gstin = db.Column(db.String(20), nullable=True)
+
+    invoice_number = db.Column(db.String(50), nullable=True)
+    invoice_date = db.Column(db.Date, nullable=True)
+
+    challan_number = db.Column(db.String(50), nullable=True)
+    challan_date = db.Column(db.Date, nullable=True)
+
+    hsn_code = db.Column(db.String(20), nullable=True)
+    consignment_value = db.Column(db.Numeric(12, 2), nullable=True)
+
+    transporter_doc_no = db.Column(db.String(50), nullable=True)
+    bill_of_lading_no = db.Column(db.String(50), nullable=True)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+# ----------------------------------------------------------------------
+# 5. OSRM ACTIVE / ALTERNATE ROUTES MODEL
+# ----------------------------------------------------------------------
+class Route(db.Model):
+    __tablename__ = "routes"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False)
+
+    route_type = db.Column(db.String(50), default="PRIMARY")  # PRIMARY, DETOUR, ALTERNATE
+    is_active = db.Column(db.Boolean, default=True)
+
+    origin_lat = db.Column(db.Numeric(10, 7), nullable=False)
+    origin_lon = db.Column(db.Numeric(10, 7), nullable=False)
+    destination_lat = db.Column(db.Numeric(10, 7), nullable=False)
+    destination_lon = db.Column(db.Numeric(10, 7), nullable=False)
+
+    distance_km = db.Column(db.Numeric(10, 2), nullable=True)
+    duration_minutes = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Geometry storing full OSRM path (GeoJSON or polyline)
+    geometry = db.Column(JSONB, nullable=True)
+    routing_provider = db.Column(db.String(50), default="OSRM")
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+# ----------------------------------------------------------------------
+# 6. TRIP CITY CHECKPOINTS (For City-to-City Detour Routing)
+# ----------------------------------------------------------------------
+class TripCityCheckpoint(db.Model):
+    """
+    Stores sequential nodes (cities/junctions) for dynamic micro-rerouting.
+    e.g., Chandigarh -> Agra -> Gwalior -> Jhansi -> Visakhapatnam.
+    """
+    __tablename__ = "trip_city_checkpoints"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False)
+
+    sequence_order = db.Column(db.Integer, nullable=False)  # 1, 2, 3...
+    city_name = db.Column(db.String(100), nullable=False)
+    latitude = db.Column(db.Numeric(10, 7), nullable=False)
+    longitude = db.Column(db.Numeric(10, 7), nullable=False)
+
+    status = db.Column(db.String(20), default="PENDING")  # PENDING, PASSED, BYPASSED
+
+
+# ----------------------------------------------------------------------
+# 7. HIGH-FREQUENCY GPS TRACKING MODEL
+# ----------------------------------------------------------------------
+class GPSUpdate(db.Model):
+    __tablename__ = "gps_updates"
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    truck_id = db.Column(UUID(as_uuid=True), db.ForeignKey("trucks.id", ondelete="CASCADE"), nullable=False)
+    shipment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("shipments.id", ondelete="CASCADE"), nullable=True)
+
+    latitude = db.Column(db.Numeric(10, 7), nullable=False)
+    longitude = db.Column(db.Numeric(10, 7), nullable=False)
+
+    speed_kmph = db.Column(db.Numeric(5, 2), nullable=True)
+    heading = db.Column(db.Numeric(5, 2), nullable=True)
+
+    timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    source = db.Column(db.String(50), default="TELEMATICS")
+
+
+# ----------------------------------------------------------------------
+# 8. DISRUPTIONS MODEL (Weather, Protests, Accidents)
+# ----------------------------------------------------------------------
+class Disruption(db.Model):
+    __tablename__ = "disruptions"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    type = db.Column(db.String(50), nullable=False)  # WEATHER, PROTEST, ROADBLOCK, ACCIDENT
+    severity = db.Column(db.String(20), nullable=False)  # LOW, MEDIUM, HIGH, BLOCKING
+
+    affected_city = db.Column(db.String(100), nullable=True)
+    latitude = db.Column(db.Numeric(10, 7), nullable=False)
+    longitude = db.Column(db.Numeric(10, 7), nullable=False)
+    radius_km = db.Column(db.Numeric(6, 2), default=10.0)
+
+    description = db.Column(db.Text, nullable=True)
+    source = db.Column(db.String(50), nullable=True)
+    source_reference = db.Column(db.String(255), nullable=True)
+
+    start_time = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    expected_end_time = db.Column(db.DateTime, nullable=True)
+
+    confidence_score = db.Column(db.Numeric(3, 2), default=1.0)
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE, RESOLVED
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+# ----------------------------------------------------------------------
+# 9. REROUTE AUDIT LOGS MODEL (LLM Decision Audit Trail)
+# ----------------------------------------------------------------------
+class RerouteLog(db.Model):
+    """
+    Records agentic decisions when bypassing disrupted cities/nodes.
+    """
+    __tablename__ = "reroute_logs"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_id = db.Column(UUID(as_uuid=True), db.ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False)
+    disruption_id = db.Column(UUID(as_uuid=True), db.ForeignKey("disruptions.id"), nullable=True)
+
+    affected_city = db.Column(db.String(100), nullable=False)
+    bypass_city = db.Column(db.String(100), nullable=False)
+    llm_reasoning = db.Column(db.Text, nullable=False)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+```
+
+---
+
+### Core Data Flow Architecture
+
+1. **User / Enterprise Linking**: Both `Truck` and `Shipment` reference `User.id` (where `User` represents the Enterprise Account).
+
+
+2. **Shipment Initialization**: When a user creates a shipment, they select an active `Truck`, specify `cargo_type` and `total_weight_kg`, and populate a `CargoDocument` record.
+
+
+3. **Route & City-Node Mapping**: The primary OSRM route is saved in `Route`. Intermediate city nodes (e.g., *Agra $\rightarrow$ Gwalior $\rightarrow$ Jhansi*) are extracted and stored sequentially in `TripCityCheckpoint`.
+
+
+4. **GPS Ingestion**: Telemetry updates are appended to `GPSUpdate`.
+
+
+5. **Disruption & Detour Execution**: When a disruption is posted to `Disruption` (e.g., *Protest in Gwalior*), the multi-agent system marks the checkpoint as `BYPASSED`, injects the alternate node (e.g., *Mehgaon*) into OSRM, recalculates the active route, and logs the decision in `RerouteLog`.
+
+
+
+__
+Error in the above info
+
+The root cause in both errors was running PostgreSQL-specific database types against a MySQL database server.Here is the exact breakdown of what failed in each case:First Error Breakdown (1064 Syntax Error)What SQL was executed:SQLCREATE TABLE disruptions (
+    id UUID NOT NULL, 
+    ...
+)
+Why it failed:You used from sqlalchemy.dialects.postgresql import UUID in your SQLAlchemy models. When flask db upgrade ran, Alembic tried to generate a raw UUID SQL data type. MySQL does not have a native UUID column type (unlike PostgreSQL), so MySQL's SQL parser threw a syntax error (1064).Second Error Breakdown (NameError: name 'Text' is not defined)What Alembic generated in the migration script:Pythonsa.Column('geometry', postgresql.JSONB(astext_type=Text()), nullable=True)
+Why it failed:Missing Python Import: Alembic generated Python code referencing Text(), but forgot to include from sqlalchemy import Text at the top of the generated migration file 3b83f24bd9f2_.py.Wrong Engine Target: Alembic was forced to generate postgresql.JSONB because JSONB was still imported from sqlalchemy.dialects.postgresql in your model code. MySQL does not support JSONB (it only supports standard JSON).Summary TableErrorImmediate TriggerUltimate CauseError 1MySQL rejected UUID data type in raw SQLModel relied on sqlalchemy.dialects.postgresql.UUIDError 2Python NameError on missing Text import in migration fileModel relied on sqlalchemy.dialects.postgresql.JSONBBoth issues were resolved by removing all sqlalchemy.dialects.postgresql imports and standardizing your schema with MySQL-compatible types: db.String(36) for UUIDs and generic db.JSON for JSON objects.

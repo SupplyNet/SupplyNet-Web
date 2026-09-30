@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Shipment Directory & Routes</h1>
+            <p class="text-sm text-gray-500">View current active shipments and optimized route statuses.</p>
+        </div>
+        <button id="openShipmentModalBtn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow">
+            + Create New Shipment
+        </button>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div
+        class="p-4 mb-4 rounded-lg text-sm {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'danger' %}bg-red-100 text-red-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Table Directory -->
+    <div class="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Route Details</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+                {% for item in shipments %}
+                <tr>
+                    <td class="px-6 py-4">
+                        <div class="font-semibold text-gray-900">{{ item.cargo_type }}</div>
+                        <div class="text-xs text-gray-500">{{ item.total_weight_kg }} kg | ₹{{ item.consignment_value or
+                            'N/A' }}</div>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600 text-sm">
+                        {% if item.truck %}
+                        <span class="font-medium text-gray-800">{{ item.truck.registration_number }}</span>
+                        <span class="block text-xs text-gray-500">({{ item.truck.truck_type }})</span>
+                        {% else %}
+                        <span class="text-gray-400 italic">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        <div><span class="font-medium">From:</span> {{ item.origin_lat }}, {{ item.origin_lon }}</div>
+                        <div><span class="font-medium">To:</span> {{ item.destination_lat }}, {{ item.destination_lon }}
+                        </div>
+                        {% if item.routes %}
+                        {% for r in item.routes if r.is_active %}
+                        <div class="text-xs text-blue-600 mt-1 font-semibold">
+                            Distance: {{ r.distance_km }} km | Est Cost: ₹{{ r.fuel_cost }}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if item.priority == 'HIGH' %}
+                        <span class="px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-800">HIGH</span>
+                        {% elif item.priority == 'MEDIUM' %}
+                        <span
+                            class="px-2 py-1 text-xs font-semibold rounded bg-yellow-100 text-yellow-800">MEDIUM</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">LOW</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium 
+                            {% if item.status == 'DELIVERED' %}bg-green-100 text-green-800
+                            {% elif item.status == 'EN_ROUTE' %}bg-blue-100 text-blue-800
+                            {% elif item.status == 'REROUTED' %}bg-purple-100 text-purple-800
+                            {% elif item.status == 'CANCELLED' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ item.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <form action="{{ url_for('shipment.update_shipment_status', shipment_id=item.id) }}"
+                            method="POST" class="inline">
+                            <select name="status" onchange="this.form.submit()"
+                                class="text-xs border rounded p-1 bg-gray-50">
+                                <option value="" disabled selected>Update Status</option>
+                                <option value="CREATED">CREATED</option>
+                                <option value="EN_ROUTE">EN_ROUTE</option>
+                                <option value="DELIVERED">DELIVERED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                        No shipments found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Form for Creating Shipment -->
+<div id="shipmentModal"
+    class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex justify-center items-center overflow-y-auto z-50">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 my-8">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="text-lg font-bold text-gray-800">Create New Shipment</h3>
+            <button id="closeShipmentModalBtn"
+                class="text-gray-500 hover:text-gray-700 font-bold text-xl">&times;</button>
+        </div>
+
+        <form action="{{ url_for('shipment.create_shipment') }}" method="POST">
+            <!-- Cargo Details -->
+            <h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">1. Cargo & Vehicle</h4>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cargo Type *</label>
+                    <input type="text" name="cargo_type" required placeholder="Electronics / FMCG"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Weight (kg) *</label>
+                    <input type="number" step="0.01" name="total_weight_kg" required placeholder="5000"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Assign Truck *</label>
+                    <select name="truck_id" required class="w-full border rounded p-2 text-sm mt-1">
+                        <option value="">-- Select Truck --</option>
+                        {% for truck in trucks %}
+                        <option value="{{ truck.id }}">{{ truck.registration_number }} ({{ truck.truck_type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Route Coordinates -->
+            <h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">2. Route Coordinates</h4>
+            <div class="grid grid-cols-3 gap-4 mb-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Origin Lat *</label>
+                    <input type="number" step="any" name="origin_lat" required placeholder="19.0760"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Origin Lon *</label>
+                    <input type="number" step="any" name="origin_lon" required placeholder="72.8777"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Origin PIN</label>
+                    <input type="text" name="origin_pin" placeholder="400001"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Destination Lat *</label>
+                    <input type="number" step="any" name="destination_lat" required placeholder="28.7041"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Destination Lon *</label>
+                    <input type="number" step="any" name="destination_lon" required placeholder="77.1025"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Destination PIN</label>
+                    <input type="text" name="destination_pin" placeholder="110001"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+            </div>
+
+            <!-- Documentation Info -->
+            <h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">3. Cargo Documentation</h4>
+            <div class="grid grid-cols-3 gap-4 mb-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Supplier GSTIN</label>
+                    <input type="text" name="supplier_gstin" placeholder="27AAAAA0000A1Z5"
+                        class="w-full border rounded p-2 text-sm mt-1 uppercase" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Recipient GSTIN</label>
+                    <input type="text" name="recipient_gstin" placeholder="07BBBBB1111B1Z2"
+                        class="w-full border rounded p-2 text-sm mt-1 uppercase" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Invoice Number</label>
+                    <input type="text" name="invoice_number" placeholder="INV-2026-001"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">HSN Code</label>
+                    <input type="text" name="hsn_code" placeholder="8708"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Consignment Value (₹)</label>
+                    <input type="number" step="0.01" name="consignment_value" placeholder="150000"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Priority</label>
+                    <select name="priority" class="w-full border rounded p-2 text-sm mt-1">
+                        <option value="LOW">LOW</option>
+                        <option value="MEDIUM" selected>MEDIUM</option>
+                        <option value="HIGH">HIGH</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t pt-4">
+                <button type="button" id="cancelShipmentModalBtn"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Create
+                    & Optimize</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('shipmentModal');
+    document.getElementById('openShipmentModalBtn').onclick = () => modal.classList.remove('hidden');
+    document.getElementById('closeShipmentModalBtn').onclick = () => modal.classList.add('hidden');
+    document.getElementById('cancelShipmentModalBtn').onclick = () => modal.classList.add('hidden');
+</script>
+{% endblock %}

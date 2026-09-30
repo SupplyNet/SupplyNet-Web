@@ -13,7 +13,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
 
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS CDN Config -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -42,6 +42,7 @@
             }
         }
     </script>
+
     <style>
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
@@ -60,279 +61,49 @@
             background: #94a3b8;
         }
     </style>
+
     {% block head_content %}{% endblock %}
 </head>
 
 <body
     class="bg-slate-50/70 text-slate-900 font-sans antialiased flex flex-col min-h-screen selection:bg-supply-600 selection:text-white">
 
-    <!-- HEADER NAVIGATION (GLASSMORPHIC LIGHT TOP BAR) -->
-    <header
-        class="bg-white/90 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-50 h-16 sm:h-20 transition-all duration-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
-            <div class="flex items-center justify-between h-full">
-
-                <!-- Left Group: Brand Logo & Mobile/Sidebar Menu Button -->
-                <div class="flex items-center space-x-3 sm:space-x-4">
-                    {% if current_user.is_authenticated %}
-                    <!-- Sidebar Toggle Button (Desktop & Mobile Drawer Trigger) -->
-                    <button id="mobile-menu-btn" type="button"
-                        class="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none border border-slate-200/80 shadow-sm"
-                        aria-label="Toggle Navigation Drawer">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    {% else %}
-                    <!-- Guest Mobile Menu Toggle -->
-                    <button id="mobile-menu-btn" type="button"
-                        class="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none border border-slate-200/80 shadow-sm"
-                        aria-label="Toggle Mobile Menu">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                    </button>
-                    {% endif %}
-
-                    <!-- Brand Logo -->
-                    <a href="{% if current_user.is_authenticated %}{{ url_for('auth.dashboard') }}{% else %}{{ url_for('core.index') }}{% endif %}"
-                        class="flex items-center space-x-3 group">
-                        <div
-                            class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-slate-900 via-supply-700 to-supply-600 text-white flex items-center justify-center shadow-md shadow-supply-500/20 group-hover:scale-105 transition-all duration-200">
-                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-                                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
-                                <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
-                                <line x1="9" y1="10.5" x2="15" y2="13.5" stroke-dasharray="2 2" />
-                            </svg>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span
-                                class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 font-display">
-                                SUPPLY<span class="text-supply-600">NET</span>
-                            </span>
-                            <span
-                                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-supply-50 text-supply-700 border border-supply-200/80 uppercase tracking-wider font-mono">
-                                OSRM + AI
-                            </span>
-                        </div>
-                    </a>
-                </div>
-
-                <!-- Right Navigation Group -->
-                <div class="flex items-center space-x-3 sm:space-x-4">
-                    {% if current_user.is_authenticated %}
-                    <!-- Search Input (Authenticated) -->
-                    <div class="hidden md:relative md:block">
-                        <input type="text" placeholder="Search truck, route..."
-                            class="w-48 focus:w-60 transition-all duration-200 bg-slate-100/90 text-xs text-slate-800 placeholder-slate-400 rounded-xl pl-8 pr-3 py-2 border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-supply-500/20 focus:border-supply-500 focus:bg-white">
-                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-
-                    <!-- User Profile & Account Action -->
-                    <div class="flex items-center space-x-3 pl-2 sm:pl-3 border-l border-slate-200/90">
-                        <div class="flex items-center space-x-2">
-                            <div
-                                class="w-8 h-8 rounded-lg bg-gradient-to-br from-supply-600 to-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-sm">
-                                {{ current_user.username[0]|upper if current_user.username else 'D' }}
-                            </div>
-                            <span class="text-xs text-slate-900 font-semibold hidden sm:inline-block font-sans">
-                                {{ current_user.full_name or current_user.username }}
-                            </span>
-                        </div>
-                        <a href="{{ url_for('auth.logout') }}"
-                            class="text-xs text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200/90 hover:border-rose-200 px-3 py-1.5 rounded-lg font-medium transition duration-150">
-                            Logout
-                        </a>
-                    </div>
-
-                    {% else %}
-                    <!-- Guest Top Nav Links -->
-                    <nav class="hidden lg:flex items-center space-x-1">
-                        <a href="{{ url_for('core.index') }}#reroute-demo"
-                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
-                            Live Detour Demo
-                        </a>
-                        <a href="{{ url_for('core.index') }}#architecture"
-                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
-                            Multi-Agent Engine
-                        </a>
-                        <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                            class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
-                            PostGIS Spatial
-                        </a>
-                    </nav>
-
-                    <div class="flex items-center space-x-2">
-                        <a href="{{ url_for('auth.login') }}"
-                            class="text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
-                            Sign In
-                        </a>
-                        <a href="{{ url_for('auth.signup') }}"
-                            class="bg-slate-900 hover:bg-supply-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all duration-200 hover:shadow-supply-500/20">
-                            Launch Console
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-
+    <!-- Global Loading Screen Overlay -->
+    <div id="global-loader"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex flex-col items-center justify-center transition-opacity duration-300">
+        <div
+            class="bg-white/95 rounded-2xl p-6 shadow-2xl border border-slate-100 flex flex-col items-center max-w-xs w-full mx-4 text-center">
+            <!-- Animated Spinner -->
+            <div class="relative flex items-center justify-center mb-4">
+                <div class="w-12 h-12 rounded-full border-4 border-supply-100 border-t-supply-600 animate-spin"></div>
+                <div class="absolute w-6 h-6 rounded-full border-2 border-slate-100 border-b-slate-400 animate-spin"
+                    style="animation-direction: reverse; animation-duration: 0.8s;"></div>
             </div>
+            <!-- Loading Text -->
+            <h4 id="loader-title" class="font-display font-semibold text-slate-800 text-sm mb-1">Processing Request</h4>
+            <p id="loader-subtitle" class="text-xs text-slate-500 font-mono">Fetching database & route intelligence...
+            </p>
         </div>
-    </header>
+    </div>
 
-    <!-- MOBILE/OFF-CANVAS BACKDROP OVERLAY -->
+    <!-- Top Linear Progress Bar for Lightweight AJAX Fetching -->
+    <div id="global-progress-bar" class="fixed top-0 left-0 right-0 h-1 bg-supply-600 z-[101] hidden animate-pulse">
+    </div>
+
+    <!-- Navbar Inclusion -->
+    {% include 'partials/navbar.html' %}
+
+    <!-- Off-Canvas Mobile Overlay Backdrop -->
     <div id="mobile-backdrop"
         class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden transition-opacity duration-200"></div>
 
-    <!-- MAIN CONTAINER LAYOUT -->
+    <!-- Main Container Layout -->
     <div class="flex-grow flex relative max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
 
-        {% if current_user.is_authenticated %}
-        <!-- AUTHENTICATED SIDEBAR NAVIGATION (MODERN LIGHT CARD STYLE) -->
-        <aside id="app-sidebar"
-            class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/95 lg:bg-white border-r lg:border border-slate-200/90 rounded-none lg:rounded-2xl p-4 mr-0 lg:mr-6 shadow-2xl lg:shadow-sm flex flex-col justify-between shrink-0 h-full lg:h-[calc(100vh-6.5rem)] transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out custom-scrollbar overflow-y-auto">
+        <!-- Sidebar Inclusion -->
+        {% include 'partials/sidebar.html' %}
 
-            <div class="space-y-6">
-                <!-- Mobile Header inside Drawer -->
-                <div class="flex lg:hidden items-center justify-between pb-3 border-b border-slate-100">
-                    <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">Navigation</span>
-                    <button id="close-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Operations Section -->
-                <div class="space-y-1.5">
-                    <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Operations
-                    </p>
-
-                    <a href="{{ url_for('auth.dashboard') }}"
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm transition">
-                        <svg class="w-4 h-4 text-supply-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        <span>Fleet Dashboard</span>
-                    </a>
-
-                    <a href="{{ url_for('core.index') }}#reroute-demo"
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                        <svg class="w-4 h-4 text-slate-400 group-hover:text-supply-600 transition" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                        <span>Active Trips & OSRM</span>
-                    </a>
-
-                    <a href="{{ url_for('core.index') }}#disruptions"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-4 h-4 text-amber-500 group-hover:scale-110 transition" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <span>Disruption Radar</span>
-                        </div>
-                        <span class="relative flex h-2 w-2">
-                            <span
-                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Intelligence Stack Section -->
-                <div class="space-y-1.5">
-                    <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Intelligence
-                        Stack</p>
-
-                    <a href="{{ url_for('core.index') }}#agent-architecture"
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-purple-50/80 hover:text-purple-700 transition group">
-                        <svg class="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span>Agent Decision Engine</span>
-                    </a>
-
-                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                        <svg class="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        </svg>
-                        <span>PostGIS Spatial Logs</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Operational Status Indicator -->
-            <div class="pt-3 border-t border-slate-100 mt-6">
-                <div
-                    class="px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 text-[11px] font-mono flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>OSRM MLD Active</span>
-                    </div>
-                    <span class="text-[10px] text-emerald-600 font-sans font-semibold">PostGIS 3.4</span>
-                </div>
-            </div>
-        </aside>
-
-        {% else %}
-        <!-- UNAUTHENTICATED GUEST MOBILE DRAWER -->
-        <div id="guest-drawer"
-            class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 p-5 shadow-2xl flex flex-col justify-between transform -translate-x-full lg:hidden transition-transform duration-200 ease-in-out">
-            <div class="space-y-6">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">SupplyNet</span>
-                    <button id="close-guest-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <nav class="space-y-1.5">
-                    <a href="{{ url_for('core.index') }}#reroute-demo"
-                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Live
-                        Detour Demo</a>
-                    <a href="{{ url_for('core.index') }}#architecture"
-                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Multi-Agent
-                        Engine</a>
-                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                        class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">PostGIS
-                        Spatial</a>
-                </nav>
-            </div>
-
-            <div class="space-y-2 pt-4 border-t border-slate-100">
-                <a href="{{ url_for('auth.login') }}"
-                    class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">Sign
-                    In</a>
-                <a href="{{ url_for('auth.signup') }}"
-                    class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-supply-600 hover:bg-supply-700 shadow-sm transition">Launch
-                    Console</a>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- MAIN PAGE CONTENT AREA -->
+        <!-- Main Dynamic Content Region -->
         <main class="flex-grow min-w-0 pb-10">
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -356,12 +127,10 @@
 
     </div>
 
-    <!-- CLEAN DARK-SLATE FOOTER -->
+    <!-- Footer -->
     <footer class="bg-slate-900 text-slate-300 border-t border-slate-800 pt-10 pb-8 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col sm:flex-row items-center justify-between pb-6 border-b border-slate-800 gap-4">
-
-                <!-- Left Branding -->
                 <div class="flex items-center space-x-3">
                     <div
                         class="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-900 to-supply-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
@@ -377,7 +146,6 @@
                         Intelligence</span>
                 </div>
 
-                <!-- Footer Quick Links -->
                 <div class="flex items-center space-x-4 text-xs text-slate-400">
                     <a href="#reroute-demo" class="hover:text-supply-400 transition">OSRM Detours</a>
                     <a href="#architecture" class="hover:text-supply-400 transition">Multi-Agent Engine</a>
@@ -385,7 +153,6 @@
                 </div>
             </div>
 
-            <!-- Footer Bottom -->
             <div class="pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
                 <p>&copy; {{ current_year if current_year else '2026' }} SupplyNet Technologies. All rights reserved.
                 </p>
@@ -399,24 +166,42 @@
         </div>
     </footer>
 
-    <!-- INTERACTIVE RESPONSIVE DRAWER SCRIPT -->
+    <!-- Interactive Responsive Drawer & Global Loader Script -->
     <script>
+        // Global Loader Controls for manually invocation in child scripts
+        function showLoader(title = "Processing Request", subtitle = "Fetching database & route intelligence...") {
+            const loader = document.getElementById('global-loader');
+            const loaderTitle = document.getElementById('loader-title');
+            const loaderSubtitle = document.getElementById('loader-subtitle');
+            if (loaderTitle) loaderTitle.textContent = title;
+            if (loaderSubtitle) loaderSubtitle.textContent = subtitle;
+            if (loader) loader.classList.remove('hidden');
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById('global-loader');
+            const progressBar = document.getElementById('global-progress-bar');
+            if (loader) loader.classList.add('hidden');
+            if (progressBar) progressBar.classList.add('hidden');
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            // 1. Mobile Drawer Navigation
             const menuBtn = document.getElementById('mobile-menu-btn');
             const closeBtn = document.getElementById('close-drawer-btn');
             const closeGuestBtn = document.getElementById('close-guest-drawer-btn');
             const sidebar = document.getElementById('app-sidebar');
-            const guestDrawer = document.getElementById('guest-drawer');
+            const classDrawer = document.getElementById('guest-drawer');
             const backdrop = document.getElementById('mobile-backdrop');
 
             function openDrawer() {
-                const target = sidebar || guestDrawer;
+                const target = sidebar || classDrawer;
                 if (target) target.classList.remove('-translate-x-full');
                 if (backdrop) backdrop.classList.remove('hidden');
             }
 
             function closeDrawer() {
-                const target = sidebar || guestDrawer;
+                const target = sidebar || classDrawer;
                 if (target) target.classList.add('-translate-x-full');
                 if (backdrop) backdrop.classList.add('hidden');
             }
@@ -425,6 +210,36 @@
             if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
             if (closeGuestBtn) closeGuestBtn.addEventListener('click', closeDrawer);
             if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+            // 2. Automatically show loader on HTML Form Submissions
+            document.addEventListener('submit', function (e) {
+                // Ignore form submission if target has data-no-loader attribute
+                if (e.target.hasAttribute('data-no-loader')) return;
+                showLoader("Submitting Data", "Communicating with backend cluster...");
+            });
+
+            // 3. Automatically intercept native Fetch API calls to display top progress bar
+            const originalFetch = window.fetch;
+            window.fetch = async function (...args) {
+                const progressBar = document.getElementById('global-progress-bar');
+                if (progressBar) progressBar.classList.remove('hidden');
+
+                try {
+                    const response = await originalFetch(...args);
+                    return response;
+                } catch (error) {
+                    throw error;
+                } finally {
+                    if (progressBar) progressBar.classList.add('hidden');
+                }
+            };
+        });
+
+        // Hide loader when navigating back via browser history
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                hideLoader();
+            }
         });
     </script>
     {% block scripts %}{% endblock %}

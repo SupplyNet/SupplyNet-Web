@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Fleet Management</h1>
+        <button id="toggleModalBtn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow">
+            + Add New Truck
+        </button>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div
+        class="p-4 mb-4 rounded-lg text-sm {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'danger' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Trucks Table -->
+    <div class="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reg Number</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capacity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Axles / Height / Width
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+                {% for truck in trucks %}
+                <tr>
+                    <td class="px-6 py-4 font-semibold text-gray-900">{{ truck.registration_number }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ truck.truck_type or '-' }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ truck.capacity_tons or '-' }} Tons</td>
+                    <td class="px-6 py-4 text-gray-500 text-sm">
+                        {{ truck.axle_count or '-' }} Axles |
+                        {{ truck.height_m or '-' }}m (H) |
+                        {{ truck.width_m or '-' }}m (W)
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if truck.active %}
+                        <span
+                            class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                        {% else %}
+                        <span
+                            class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <form action="{{ url_for('shipment.toggle_truck_status', truck_id=truck.id) }}" method="POST"
+                            class="inline">
+                            <button type="submit"
+                                class="text-sm font-medium {% if truck.active %}text-red-600 hover:text-red-900{% else %}text-green-600 hover:text-green-900{% endif %}">
+                                {% if truck.active %}Deactivate{% else %}Activate{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                        No trucks found in your fleet. Click "+ Add New Truck" to add one.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Form for Adding Truck -->
+<div id="truckModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex justify-center items-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="text-lg font-bold text-gray-800">Add New Truck</h3>
+            <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 font-bold text-xl">&times;</button>
+        </div>
+
+        <form action="{{ url_for('shipment.manage_trucks') }}" method="POST">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Reg. Number *</label>
+                    <input type="text" name="registration_number" required placeholder="MH-12-AB-1234"
+                        class="w-full border rounded p-2 text-sm mt-1 uppercase" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Truck Type *</label>
+                    <select name="truck_type" required class="w-full border rounded p-2 text-sm mt-1">
+                        <option value="">Select Type</option>
+                        <option value="Container 20ft">Container 20ft</option>
+                        <option value="Container 40ft">Container 40ft</option>
+                        <option value="Trailer Open">Trailer Open</option>
+                        <option value="Box Truck">Box Truck</option>
+                        <option value="Refrigerated">Refrigerated</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Capacity (Tons) *</label>
+                    <input type="number" step="0.01" name="capacity_tons" required placeholder="15.00"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">GVW (kg)</label>
+                    <input type="number" step="0.01" name="gvw_kg" placeholder="25000"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Axle Count</label>
+                    <input type="number" name="axle_count" value="2" class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Height (m)</label>
+                    <input type="number" step="0.01" name="height_m" placeholder="3.8"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Width (m)</label>
+                    <input type="number" step="0.01" name="width_m" placeholder="2.5"
+                        class="w-full border rounded p-2 text-sm mt-1" />
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t pt-4">
+                <button type="button" id="cancelModalBtn"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Save
+                    Truck</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('truckModal');
+    document.getElementById('toggleModalBtn').onclick = () => modal.classList.remove('hidden');
+    document.getElementById('closeModalBtn').onclick = () => modal.classList.add('hidden');
+    document.getElementById('cancelModalBtn').onclick = () => modal.classList.add('hidden');
+</script>
+{% endblock %}

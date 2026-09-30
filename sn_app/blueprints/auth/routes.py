@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, current_user, login_required
 import os
 from sn_app.app import db, bcrypt
 from sn_app.blueprints.auth.models import   User, Note
-
+from sn_app.blueprints.shipment.models import Shipment, Disruption, RerouteLog
 auth = Blueprint('auth', __name__, template_folder='templates')
 
 
@@ -91,8 +91,35 @@ def logout():
 @auth.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('auth/dashboard.html')
+    # Corrected filter_eq to filter_by
+    user_shipments = Shipment.query.filter_by(user_id=current_user.id).all()
+    
+    # Active disruptions across the network
+    active_disruptions = Disruption.query.filter_by(status="ACTIVE").all()
+    
+    # Reroute decision audit logs
+    reroute_logs = (
+        RerouteLog.query.join(Shipment)
+        .filter(Shipment.user_id == current_user.id)
+        .order_by(RerouteLog.created_at.desc())
+        .all()
+    )
+    
+    # Determine focused shipment for spatial rendering
+    focus_id = request.args.get('focus_shipment_id')
+    active_shipment = None
+    if focus_id:
+        active_shipment = Shipment.query.get(focus_id)
+    elif user_shipments:
+        active_shipment = user_shipments[0]
 
+    return render_template(
+        'auth/dashboard.html',
+        shipments=user_shipments,
+        active_disruptions=active_disruptions,
+        reroute_logs=reroute_logs,
+        active_shipment=active_shipment
+    )
 
 @auth.route('/new_note', methods=['GET', 'POST'])
 @login_required

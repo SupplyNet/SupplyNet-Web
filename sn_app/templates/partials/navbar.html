@@ -1,0 +1,105 @@
+<!-- HEADER NAVIGATION (GLASSMORPHIC LIGHT TOP BAR) -->
+<header
+    class="bg-white/90 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-50 h-16 sm:h-20 transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+        <div class="flex items-center justify-between h-full">
+
+            <!-- Left Group: Brand Logo & Mobile/Sidebar Toggle -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <button id="mobile-menu-btn" type="button"
+                    class="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition focus:outline-none border border-slate-200/80 shadow-sm"
+                    aria-label="Toggle Navigation Drawer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h7" />
+                    </svg>
+                </button>
+
+                <!-- Brand Logo -->
+                <a href="{% if current_user.is_authenticated %}{{ url_for('auth.dashboard') }}{% else %}{{ url_for('core.index') }}{% endif %}"
+                    class="flex items-center space-x-3 group">
+                    <div
+                        class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-slate-900 via-supply-700 to-supply-600 text-white flex items-center justify-center shadow-md shadow-supply-500/20 group-hover:scale-105 transition-all duration-200">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                            <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
+                            <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
+                            <line x1="9" y1="10.5" x2="15" y2="13.5" stroke-dasharray="2 2" />
+                        </svg>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 font-display">
+                            SUPPLY<span class="text-supply-600">NET</span>
+                        </span>
+                        <span
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-supply-50 text-supply-700 border border-supply-200/80 uppercase tracking-wider font-mono">
+                            OSRM + AI
+                        </span>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Right Navigation Group -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                {% if current_user.is_authenticated %}
+                <!-- Authenticated User Controls -->
+                <div class="hidden md:relative md:block">
+                    <input type="text" placeholder="Search truck, route..."
+                        class="w-48 focus:w-60 transition-all duration-200 bg-slate-100/90 text-xs text-slate-800 placeholder-slate-400 rounded-xl pl-8 pr-3 py-2 border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-supply-500/20 focus:border-supply-500 focus:bg-white">
+                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+
+                <div class="flex items-center space-x-3 pl-2 sm:pl-3 border-l border-slate-200/90">
+                    <div class="flex items-center space-x-2">
+                        <div
+                            class="w-8 h-8 rounded-lg bg-gradient-to-br from-supply-600 to-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-sm">
+                            {{ current_user.username[0]|upper if current_user.username else 'D' }}
+                        </div>
+                        <span class="text-xs text-slate-900 font-semibold hidden sm:inline-block font-sans">
+                            {{ current_user.full_name or current_user.username }}
+                        </span>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}"
+                        class="text-xs text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200/90 hover:border-rose-200 px-3 py-1.5 rounded-lg font-medium transition duration-150">
+                        Logout
+                    </a>
+                </div>
+
+                {% else %}
+                <!-- Guest User Actions -->
+                <nav class="hidden lg:flex items-center space-x-1">
+                    <a href="{{ url_for('core.index') }}#reroute-demo"
+                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                        Live Detour Demo
+                    </a>
+                    <a href="{{ url_for('core.index') }}#architecture"
+                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                        Multi-Agent Engine
+                    </a>
+                    <a href="{{ url_for('core.index') }}#spatial-pipeline"
+                        class="text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                        PostGIS Spatial
+                    </a>
+                </nav>
+
+                <div class="flex items-center space-x-2">
+                    <a href="{{ url_for('auth.login') }}"
+                        class="text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 px-3 py-2 rounded-xl text-xs font-semibold transition">
+                        Sign In
+                    </a>
+                    <a href="{{ url_for('auth.signup') }}"
+                        class="bg-slate-900 hover:bg-supply-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all duration-200 hover:shadow-supply-500/20">
+                        Launch Console
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</header>
