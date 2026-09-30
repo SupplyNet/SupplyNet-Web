@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Portal — SupplyNet Fleet Console{% endblock %}
+
+{% block content %}
+<div
+    class="min-h-[calc(100vh-4rem)] bg-slate-50/50 selection:bg-supply-600 selection:text-white flex items-center justify-center p-4 sm:p-6 font-sans antialiased bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem]">
+
+    <div class="w-full max-w-md mx-auto text-center">
+
+        <!-- SupplyNet Brand Badge -->
+        <div
+            class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-supply-50 border border-supply-200 text-supply-800 text-xs font-semibold mb-6">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Fleet Operations &amp; Disruption Portal
+        </div>
+
+        <!-- Main Auth Card Container -->
+        <div
+            class="p-6 sm:p-8 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:border-supply-300 transition duration-200 text-left">
+
+            <!-- Brand Header inside Card -->
+            <div class="flex items-center gap-3 mb-6 pb-6 border-b border-slate-100">
+                <div
+                    class="bg-gradient-to-tr from-slate-900 to-supply-600 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md shrink-0">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                        <circle cx="9" cy="10.5" r="1.5" fill="currentColor" />
+                        <circle cx="15" cy="13.5" r="1.5" fill="currentColor" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 tracking-tight text-lg leading-snug font-display">
+                        SUPPLY<span class="text-supply-600">NET</span>
+                    </h1>
+                    <p class="text-xs text-slate-500">Autonomous Fleet &amp; Route Console</p>
+                </div>
+            </div>
+
+            {% if current_user.is_authenticated %}
+            <!-- Authenticated State -->
+            <div class="space-y-4">
+                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
+                    <span class="text-xs text-slate-500 block mb-0.5">Signed in as</span>
+                    <span class="text-sm font-bold text-slate-900 break-words">{{ current_user.full_name or
+                        current_user.username }}</span>
+                </div>
+
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Your active session is ready. Proceed to your live fleet tracking, waypoint inspection, or dispatcher dashboard.
+                </p>
+
+                <div class="pt-2 flex flex-col gap-2.5">
+                    <a href="{{ url_for('auth.dashboard') }}"
+                        class="w-full text-center bg-slate-900 hover:bg-supply-600 text-white px-5 py-2.5 rounded-lg font-semibold text-xs transition-colors duration-200 shadow-sm active:scale-[0.98]">
+                        Go to Fleet Dashboard
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}"
+                        class="w-full text-center bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 px-5 py-2.5 rounded-lg font-semibold text-xs transition active:scale-[0.98]">
+                        Sign Out
+                    </a>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Guest State -->
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <h2 class="text-base font-bold text-slate-900">Sign in to Fleet Operations</h2>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        Access real-time telemetry, monitor automated PostGIS disruption geofences, and review multi-agent detour logs.
+                    </p>
+                </div>
+
+                <div class="pt-2 flex flex-col gap-2.5">
+                    <a href="{{ url_for('auth.login') }}"
+                        class="w-full text-center bg-slate-900 hover:bg-supply-600 text-white px-5 py-2.5 rounded-lg font-semibold text-xs transition-colors duration-200 shadow-sm active:scale-[0.98]">
+                        Log In
+                    </a>
+                    <a href="{{ url_for('auth.signup') }}"
+                        class="w-full text-center bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 px-5 py-2.5 rounded-lg font-semibold text-xs transition active:scale-[0.98]">
+                        Register Enterprise Fleet Account
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}

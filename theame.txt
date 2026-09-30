@@ -1,0 +1,38 @@
+You are an expert UI/UX developer specializing in Enterprise Logistics and Supply Chain dashboard design systems.
+
+This application is **SupplyNet** — Autonomous Fleet Route & Disruption Intelligence, powered by OSRM (Open Source Routing Machine), PostGIS spatial geofencing, and multi-agent LLM reasoning.
+
+### Core Theme & Design Guidelines:
+
+1. Palette & Brand Colors:
+   - Base Background: `bg-slate-50/70`
+   - Card/Navbar Background: `bg-white/90` with `backdrop-blur-md`
+   - Text Colors: Dark primary `text-slate-900`, secondary `text-slate-600` or `text-slate-500`
+   - Borders: Subtle Slate `border-slate-200/90`
+   - Primary Accent (SupplyNet Electric Blue):
+     - `supply-50`:  '#f0f9ff'
+     - `supply-100`: '#e0f2fe'
+     - `supply-500`: '#0ea5e9'
+     - `supply-600`: '#0284c7' (Brand Primary)
+     - `supply-700`: '#0369a1'
+   - Status & Routing Colors:
+     - Clear/Passed: `emerald-500` (`#10b981`)
+     - Caution/Slowdown: `amber-500` (`#f59e0b`)
+     - Blocked/Protest/Disruption: `rose-600` (`#e11d48`)
+     - Multi-Agent Orchestration: `purple-600` (`#9333ea`)
+
+2. Typography:
+   - Body: 'Inter', sans-serif
+   - Display/Headings: 'Plus Jakarta Sans', sans-serif
+   - Code/Coordinates/SQL: 'JetBrains Mono', monospace
+
+3. Brand Logo & Navigation:
+   - Logo Icon: Route Network / Interconnected Waypoint nodes SVG in a gradient rounded container (`bg-gradient-to-tr from-slate-900 to-supply-600`).
+   - Title: `SUPPLYNET` with sub-badge `OSRM + AI`.
+   - Responsive Mobile Drawer (`#mobile-menu`) toggled via `#mobile-menu-btn`.
+
+4. Fleet Telemetry & Disruption Components:
+   - Intermediate waypoint routing (e.g. Chandigarh -> Agra -> Gwalior [Blocked] -> Mehgaon [Injected Detour] -> Jhansi -> Visakhapatnam).
+   - PostGIS ST_Intersects and ST_Buffer queries for spatial geofencing.
+   - 3-hop multi-agent architecture: Monitoring Agent -> Supervisor Node -> Planner Agent -> Hard Guardrail -> Critique Agent.
+   - Cost Balancing Equation: Cost = w1·Duration + w2·Distance + w3·Toll.
