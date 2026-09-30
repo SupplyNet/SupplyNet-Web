@@ -1,74 +1,87 @@
 <!-- SIDEBAR NAVIGATION -->
 {% if current_user.is_authenticated %}
 <aside id="app-sidebar"
-    class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/95 lg:bg-white border-r lg:border border-slate-200/90 rounded-none lg:rounded-2xl p-4 mr-0 lg:mr-6 shadow-2xl lg:shadow-sm flex flex-col justify-between shrink-0 h-full lg:h-[calc(100vh-6.5rem)] transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out custom-scrollbar overflow-y-auto">
+    class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/95 backdrop-blur-md border-r border-slate-200/80 rounded-none lg:rounded-2xl p-4 mr-0 lg:mr-6 shadow-xl lg:shadow-sm flex flex-col justify-between shrink-0 h-full lg:h-[calc(100vh-6.5rem)] -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out custom-scrollbar overflow-y-auto will-change-transform">
 
     <div class="space-y-6">
         <!-- Mobile Drawer Close Header -->
         <div class="flex lg:hidden items-center justify-between pb-3 border-b border-slate-100">
-            <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">Navigation</span>
-            <button id="close-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-supply-600"></span>
+                <span class="text-xs font-bold font-mono text-slate-500 uppercase tracking-wider">Navigation</span>
+            </div>
+            <button id="close-drawer-btn"
+                class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
                 aria-label="Close Navigation Drawer">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
 
         <!-- Operations Navigation Section -->
-        <div class="space-y-1.5">
-            <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Operations</p>
+        <div class="space-y-1">
+            <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono mb-2">Operations</p>
 
+            <!-- Dashboard -->
             <a href="{{ url_for('auth.dashboard') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm transition">
-                <svg class="w-4 h-4 text-supply-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-150 {{ 'text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm' if request.endpoint == 'auth.dashboard' else 'text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent' }}">
+                {% if request.endpoint == 'auth.dashboard' %}
+                <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-supply-600 rounded-r-full"></span>
+                {% endif %}
+                <svg class="w-4 h-4 shrink-0 {{ 'text-supply-600' if request.endpoint == 'auth.dashboard' else 'text-slate-400 group-hover:text-supply-600' }} transition-colors"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-                <span>Fleet Dashboard</span>
+                <span class="truncate">Dashboard</span>
             </a>
 
-            <a href="{{ url_for('shipment.manage_trucks') }}#reroute-demo"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-supply-600 transition" fill="none"
+            <!-- Active Trips & OSRM -->
+            <a href="#"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent transition-colors duration-150">
+                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-supply-600 transition-colors" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
-                <span>Active Trips & OSRM</span>
+                <span class="truncate">Active Trips & OSRM</span>
             </a>
 
+            <!-- Add New Truck -->
             <a href="{{ url_for('shipment.manage_trucks') }}#reroute-demo"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-supply-600 transition" fill="none"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent transition-colors duration-150">
+                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-supply-600 transition-colors" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
-                <span>Add New Truck</span>
+                <span class="truncate">Add New Truck</span>
             </a>
 
+            <!-- Add New Shipment -->
             <a href="{{ url_for('shipment.create_shipment') }}#reroute-demo"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-supply-600 transition" fill="none"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent transition-colors duration-150">
+                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-supply-600 transition-colors" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <span>Add New Shipment</span>
+                <span class="truncate">Add New Shipment</span>
             </a>
 
+            <!-- Disruption Radar -->
             <a href="{{ url_for('shipment.manage_trucks') }}#disruptions"
-                class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                <div class="flex items-center gap-3">
-                    <svg class="w-4 h-4 text-amber-500 group-hover:scale-110 transition" fill="none"
+                class="group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-amber-700 hover:bg-amber-50/60 border border-transparent transition-colors duration-150">
+                <div class="flex items-center gap-3 min-w-0">
+                    <svg class="w-4 h-4 shrink-0 text-amber-500 group-hover:scale-110 transition-transform" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <span>Disruption Radar</span>
+                    <span class="truncate">Disruption Radar</span>
                 </div>
-                <span class="relative flex h-2 w-2">
+                <span class="relative flex h-2 w-2 shrink-0 ml-2">
                     <span
                         class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -77,28 +90,28 @@
         </div>
 
         <!-- Intelligence Stack Section -->
-        <div class="space-y-1.5">
-            <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Intelligence Stack
-            </p>
+        <div class="space-y-1">
+            <p class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono mb-2">Intelligence
+                Stack</p>
 
             <a href="{{ url_for('shipment.manage_trucks') }}#agent-architecture"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-purple-50/80 hover:text-purple-700 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition" fill="none"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50/70 border border-transparent transition-colors duration-150">
+                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-purple-600 transition-colors" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <span>Agent Decision Engine</span>
+                <span class="truncate">Agent Decision Engine</span>
             </a>
 
             <a href="{{ url_for('shipment.manage_trucks') }}#spatial-pipeline"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-supply-600 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition" fill="none"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/70 border border-transparent transition-colors duration-150">
+                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-emerald-600 transition-colors" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 </svg>
-                <span>PostGIS Spatial Logs</span>
+                <span class="truncate">PostGIS Spatial Logs</span>
             </a>
         </div>
     </div>
@@ -106,12 +119,18 @@
     <!-- Live System Status Pin -->
     <div class="pt-3 border-t border-slate-100 mt-6">
         <div
-            class="px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 text-[11px] font-mono flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>OSRM MLD Active</span>
+            class="px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-[11px] font-mono flex items-center justify-between shadow-inner">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="relative flex h-2 w-2 shrink-0">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span class="text-slate-300 font-medium truncate">OSRM MLD</span>
             </div>
-            <span class="text-[10px] text-emerald-600 font-sans font-semibold">PostGIS 3.4</span>
+            <span
+                class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-emerald-400 font-mono border border-slate-700 shrink-0 ml-2">PostGIS
+                3.4</span>
         </div>
     </div>
 </aside>
@@ -119,37 +138,41 @@
 {% else %}
 <!-- Guest Off-Canvas Mobile Drawer -->
 <div id="guest-drawer"
-    class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 p-5 shadow-2xl flex flex-col justify-between transform -translate-x-full lg:hidden transition-transform duration-200 ease-in-out">
+    class="fixed inset-y-0 left-0 z-50 w-64 bg-white/95 backdrop-blur-md border-r border-slate-200/90 p-5 shadow-2xl flex flex-col justify-between -translate-x-full lg:hidden transition-transform duration-200 ease-in-out will-change-transform">
     <div class="space-y-6">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <span class="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">SupplyNet</span>
-            <button id="close-guest-drawer-btn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-supply-600"></div>
+                <span class="text-xs font-bold font-mono text-slate-800 tracking-wider">SupplyNet</span>
+            </div>
+            <button id="close-guest-drawer-btn"
+                class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 aria-label="Close Guest Mobile Drawer">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
 
-        <nav class="space-y-1.5">
+        <nav class="space-y-1">
             <a href="{{ url_for('core.index') }}#reroute-demo"
-                class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Live
+                class="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors">Live
                 Detour Demo</a>
             <a href="{{ url_for('core.index') }}#architecture"
-                class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">Multi-Agent
+                class="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors">Multi-Agent
                 Engine</a>
             <a href="{{ url_for('core.index') }}#spatial-pipeline"
-                class="block px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">PostGIS
+                class="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors">PostGIS
                 Spatial</a>
         </nav>
     </div>
 
     <div class="space-y-2 pt-4 border-t border-slate-100">
         <a href="{{ url_for('auth.login') }}"
-            class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">Sign
+            class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">Sign
             In</a>
         <a href="{{ url_for('auth.signup') }}"
-            class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-supply-600 hover:bg-supply-700 shadow-sm transition">Launch
+            class="block w-full text-center px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-supply-600 hover:bg-supply-700 shadow-sm transition-colors">Launch
             Console</a>
     </div>
 </div>

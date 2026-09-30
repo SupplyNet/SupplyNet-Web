@@ -60,6 +60,25 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+
+        /* Ambient background shimmer for modern UI */
+        @keyframes subtle-pulse {
+
+            0%,
+            100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(1.08);
+            }
+        }
+
+        .animate-subtle-pulse {
+            animation: subtle-pulse 3s infinite ease-in-out;
+        }
     </style>
 
     {% block head_content %}{% endblock %}
@@ -68,20 +87,34 @@
 <body
     class="bg-slate-50/70 text-slate-900 font-sans antialiased flex flex-col min-h-screen selection:bg-supply-600 selection:text-white">
 
-    <!-- Global Loading Screen Overlay -->
+    <!-- Modern Glassmorphism Initial & Global Loading Overlay -->
     <div id="global-loader"
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex flex-col items-center justify-center transition-opacity duration-300">
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center transition-opacity duration-300 opacity-100">
+
+        <!-- Ambient Glow Backlight -->
+        <div class="absolute w-48 h-48 bg-supply-500/20 rounded-full blur-3xl animate-subtle-pulse pointer-events-none">
+        </div>
+
         <div
-            class="bg-white/95 rounded-2xl p-6 shadow-2xl border border-slate-100 flex flex-col items-center max-w-xs w-full mx-4 text-center">
-            <!-- Animated Spinner -->
-            <div class="relative flex items-center justify-center mb-4">
-                <div class="w-12 h-12 rounded-full border-4 border-supply-100 border-t-supply-600 animate-spin"></div>
-                <div class="absolute w-6 h-6 rounded-full border-2 border-slate-100 border-b-slate-400 animate-spin"
-                    style="animation-direction: reverse; animation-duration: 0.8s;"></div>
+            class="relative bg-white/90 backdrop-blur-xl rounded-3xl p-7 shadow-2xl border border-white/40 flex flex-col items-center max-w-xs w-full mx-4 text-center ring-1 ring-slate-900/5">
+
+            <!-- Modern Concentric Spinner Visual -->
+            <div class="relative flex items-center justify-center mb-5">
+                <!-- Outer Ring -->
+                <div class="w-14 h-14 rounded-full border-2 border-supply-100 border-t-supply-600 animate-spin"></div>
+                <!-- Inner Reverse Ring -->
+                <div class="absolute w-9 h-9 rounded-full border-2 border-slate-200 border-b-slate-600 animate-spin"
+                    style="animation-direction: reverse; animation-duration: 0.85s;"></div>
+                <!-- Core Pulse Dot -->
+                <div class="absolute w-2.5 h-2.5 rounded-full bg-supply-600 animate-ping"></div>
             </div>
+
             <!-- Loading Text -->
-            <h4 id="loader-title" class="font-display font-semibold text-slate-800 text-sm mb-1">Processing Request</h4>
-            <p id="loader-subtitle" class="text-xs text-slate-500 font-mono">Fetching database & route intelligence...
+            <h4 id="loader-title" class="font-display font-bold text-slate-800 text-sm tracking-tight mb-1">
+                Loading Page
+            </h4>
+            <p id="loader-subtitle" class="text-[11px] text-slate-500 font-mono tracking-wide">
+                Fetching route intelligence...
             </p>
         </div>
     </div>
@@ -166,27 +199,60 @@
         </div>
     </footer>
 
-    <!-- Interactive Responsive Drawer & Global Loader Script -->
+    <!-- Interactive Responsive Drawer & Global Loader Controls -->
     <script>
-        // Global Loader Controls for manually invocation in child scripts
-        function showLoader(title = "Processing Request", subtitle = "Fetching database & route intelligence...") {
+        function showLoader(title = "Loading Page", subtitle = "Fetching database & route intelligence...") {
             const loader = document.getElementById('global-loader');
             const loaderTitle = document.getElementById('loader-title');
             const loaderSubtitle = document.getElementById('loader-subtitle');
             if (loaderTitle) loaderTitle.textContent = title;
             if (loaderSubtitle) loaderSubtitle.textContent = subtitle;
-            if (loader) loader.classList.remove('hidden');
+            if (loader) {
+                loader.classList.remove('hidden');
+                setTimeout(() => loader.classList.remove('opacity-0'), 10);
+            }
         }
 
         function hideLoader() {
             const loader = document.getElementById('global-loader');
             const progressBar = document.getElementById('global-progress-bar');
-            if (loader) loader.classList.add('hidden');
+            if (loader) {
+                loader.classList.add('opacity-0');
+                setTimeout(() => loader.classList.add('hidden'), 300);
+            }
             if (progressBar) progressBar.classList.add('hidden');
         }
 
-        document.addEventListener('DOMContentLoaded', function () {
-            // 1. Mobile Drawer Navigation
+        // Hide the initial full page load screen as soon as DOM is ready
+        window.addEventListener('DOMContentLoaded', function () {
+            hideLoader();
+
+            // 1. Instant Loader Trigger on Sidebar & Nav Link Clicks
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest('a');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+
+                // Skip non-navigating links (anchors, javascript calls, external targets, or data-no-loader)
+                if (
+                    !href ||
+                    href.startsWith('#') ||
+                    href.startsWith('javascript:') ||
+                    link.getAttribute('target') === '_blank' ||
+                    link.hasAttribute('data-no-loader')
+                ) {
+                    return;
+                }
+
+                // Custom title/subtitle support via data attributes if needed
+                const customTitle = link.getAttribute('data-loader-title') || "Loading Page";
+                const customSubtitle = link.getAttribute('data-loader-subtitle') || "Navigating to requested route...";
+
+                showLoader(customTitle, customSubtitle);
+            });
+
+            // 2. Mobile Drawer Navigation
             const menuBtn = document.getElementById('mobile-menu-btn');
             const closeBtn = document.getElementById('close-drawer-btn');
             const closeGuestBtn = document.getElementById('close-guest-drawer-btn');
@@ -211,31 +277,27 @@
             if (closeGuestBtn) closeGuestBtn.addEventListener('click', closeDrawer);
             if (backdrop) backdrop.addEventListener('click', closeDrawer);
 
-            // 2. Automatically show loader on HTML Form Submissions
+            // 3. Display Loader on Standard HTML Form Submissions
             document.addEventListener('submit', function (e) {
-                // Ignore form submission if target has data-no-loader attribute
                 if (e.target.hasAttribute('data-no-loader')) return;
-                showLoader("Submitting Data", "Communicating with backend cluster...");
+                showLoader("Submitting Request", "Processing form data...");
             });
 
-            // 3. Automatically intercept native Fetch API calls to display top progress bar
+            // 4. Intercept Fetch API calls for top thin progress bar
             const originalFetch = window.fetch;
             window.fetch = async function (...args) {
                 const progressBar = document.getElementById('global-progress-bar');
                 if (progressBar) progressBar.classList.remove('hidden');
 
                 try {
-                    const response = await originalFetch(...args);
-                    return response;
-                } catch (error) {
-                    throw error;
+                    return await originalFetch(...args);
                 } finally {
                     if (progressBar) progressBar.classList.add('hidden');
                 }
             };
         });
 
-        // Hide loader when navigating back via browser history
+        // Ensure loader disappears when navigating back/forward via browser cache
         window.addEventListener('pageshow', function (event) {
             if (event.persisted) {
                 hideLoader();
