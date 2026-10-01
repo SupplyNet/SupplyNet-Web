@@ -214,6 +214,11 @@ def update_shipment_status(shipment_id):
     return render_template('shipment/shipments.html', trucks=trucks, shipments=user_shipments)
 
 
+# 1. Get Shipment Detail Page Route
+@shipment.route('/<shipment_id>', methods=['GET'])
+def get_shipment_detail(shipment_id):
+    shipment = Shipment.query.get_or_404(shipment_id)
+    return render_template('shipment/shipment_detail.html', shipment=shipment)
 
 
 
@@ -233,27 +238,79 @@ def start_transit(shipment_id):
     if not active_route or not active_route.geometry:
         return jsonify({"error": "No optimized active route found to simulate."}), 400
 
-    # Extract coordinates from geometry JSON
-    waypoints = active_route.geometry.get("coordinates", [])
-
+    """  # Payload to register simulation in FastAPI's memory
     sim_payload = {
-        "shipment_id": str(shipment_obj.id),
-        "truck_id": str(shipment_obj.truck_id),
-        "update_interval_seconds": 3,
-        "simulation_speed_multiplier": 5,
-        "waypoints": waypoints
-    }
+        "route_id": str(active_route.id),
+        "vehicle_id": str(shipment_obj.truck_id),
+        "auto_start": True
+    }"""
+    sim_payload = {
+    "shipment_id": str(shipment_obj.id),
+    "route_id": str(active_route.id),
+    "truck_id": str(shipment_obj.truck_id) if shipment_obj.truck_id else None,
+    "auto_start": True
+        }
 
     try:
-        resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/simulation/start", json=sim_payload, timeout=10)
-        if resp.status_code in [200, 201, 202]:
+        resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/simulations", json=sim_payload, timeout=10)
+        
+        if resp.status_code in [200, 201]:
+            sim_data = resp.json()
+            
+            # Update shipment status in Flask DB
             shipment_obj.status = 'EN_ROUTE'
             db.session.commit()
-            return jsonify({"message": "Transit started and GPS simulation initialized.", "shipment_id": str(shipment_obj.id)}), 200
+
+            return jsonify({
+                "message": "Transit started. GPS simulation running in memory.",
+                "shipment_id": str(shipment_obj.id),
+                "simulation_id": sim_data.get("id")
+            }), 200
+        elif resp.status_code == 409:
+            return jsonify({"error": "Simulation already running for this truck."}), 409
         else:
-            return jsonify({"error": "Failed to trigger GPS simulator in FastAPI"}), 500
+            return jsonify({"error": "Failed to start simulation on agent backend."}), 500
+
     except Exception as e:
-        return jsonify({"error": f"Connection error to FastAPI: {str(e)}"}), 500
+        return jsonify({"error": f"Connection error to FastAPI agent: {str(e)}"}), 500
+
+
+@shipment.route('/<shipment_id>/record-gps', methods=['POST'])
+@login_required
+def record_gps_update(shipment_id):
+    shipment_obj = Shipment.query.filter_by(id=shipment_id, user_id=current_user.id).first_or_404()
+    data = request.get_json()
+
+    if not data or 'latitude' not in data or 'longitude' not in data:
+        return jsonify({"error": "Invalid GPS payload"}), 400
+
+    # Save incoming coordinate into MySQL gps_updates table
+    gps_entry = GPSUpdate(
+        shipment_id=shipment_obj.id,
+        truck_id=shipment_obj.truck_id,
+        latitude=float(data['latitude']),
+        longitude=float(data['longitude']),
+        speed_kmph=float(data.get('speed_kmph', 60.0)),
+        heading=float(data.get('heading', 0.0)),
+        source='FASTAPI_SIMULATOR'
+    )
+
+    db.session.add(gps_entry)
+
+    # Check if the truck has reached destination (100% route progress)
+    if data.get('route_progress_percent') == 100 or data.get('status') == 'COMPLETED':
+        shipment_obj.status = 'DELIVERED'
+
+    db.session.commit()
+
+    return jsonify({"message": "GPS update recorded", "gps_id": gps_entry.id}), 201
+
+
+
+
+
+
+
 
 
 # ----------------------------------------------------------------------

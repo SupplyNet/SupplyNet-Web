@@ -77,18 +77,12 @@
                             {{ item.status }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right">
-                        <form action="{{ url_for('shipment.update_shipment_status', shipment_id=item.id) }}"
-                            method="POST" class="inline">
-                            <select name="status" onchange="this.form.submit()"
-                                class="text-xs border rounded p-1 bg-gray-50">
-                                <option value="" disabled selected>Change Status</option>
-                                <option value="CREATED">CREATED</option>
-                                <option value="EN_ROUTE">EN_ROUTE</option>
-                                <option value="DELIVERED">DELIVERED</option>
-                                <option value="CANCELLED">CANCELLED</option>
-                            </select>
-                        </form>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <!-- Inspect / View Details Button -->
+                        <a href="{{ url_for('shipment.get_shipment_detail', shipment_id=item.id) }}"
+                            class="inline-block px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-xs rounded border border-indigo-200 transition">
+                            🔍 Inspect
+                        </a>
                     </td>
                 </tr>
                 {% else %}
@@ -110,7 +104,6 @@
         <div class="flex justify-between items-center mb-4 border-b pb-2">
             <div class="flex items-center gap-3">
                 <h3 class="text-lg font-bold text-gray-800">Create New Shipment</h3>
-                <!-- Sample Data Auto-fill Button -->
                 <button type="button" id="fillSampleDataBtn"
                     class="bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold py-1 px-3 rounded-full border border-purple-300 transition">
                     ⚡ Fill Sample Trip (CHD → VSKP)
@@ -179,12 +172,12 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Destination PIN</label>
-                    <input type="text" name="destination_pin" placeholder="530001"
+                    <input type="text" name="destination_pin" placeholder="530012"
                         class="w-full border rounded p-2 text-sm mt-1" />
                 </div>
             </div>
 
-            <!-- 3. Cargo Documentation & Meta -->
+            <!-- 3. Cargo Documentation -->
             <h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">3. Cargo Documentation</h4>
             <div class="grid grid-cols-3 gap-4 mb-2">
                 <div>
@@ -241,31 +234,24 @@
     document.getElementById('closeShipmentModalBtn').onclick = () => modal.classList.add('hidden');
     document.getElementById('cancelShipmentModalBtn').onclick = () => modal.classList.add('hidden');
 
-    // Auto-fill Chandigarh to Visakhapatnam sample trip data
     document.getElementById('fillSampleDataBtn').onclick = () => {
         const form = document.getElementById('shipmentForm');
-
-        // Cargo details
         form.querySelector('[name="cargo_type"]').value = 'Industrial Machinery & Spare Parts';
         form.querySelector('[name="total_weight_kg"]').value = '12500';
 
-        // Auto-select first available truck if not already selected
         const truckSelect = form.querySelector('[name="truck_id"]');
         if (truckSelect.options.length > 1 && !truckSelect.value) {
             truckSelect.selectedIndex = 1;
         }
 
-        // Origin: Chandigarh (Transport Area, Phase 1)
         form.querySelector('[name="origin_lat"]').value = '30.7046';
         form.querySelector('[name="origin_lon"]').value = '76.8010';
         form.querySelector('[name="origin_pin"]').value = '160002';
 
-        // Destination: Visakhapatnam (Auto Nagar / Port Area)
         form.querySelector('[name="destination_lat"]').value = '17.6868';
         form.querySelector('[name="destination_lon"]').value = '83.2185';
         form.querySelector('[name="destination_pin"]').value = '530012';
 
-        // Documentation details (Chandigarh state code 04, AP state code 37)
         form.querySelector('[name="supplier_gstin"]').value = '04ABCDE1234F1Z5';
         form.querySelector('[name="recipient_gstin"]').value = '37XYZAB5678G1Z2';
         form.querySelector('[name="invoice_number"]').value = 'INV-CHD-2026-089';

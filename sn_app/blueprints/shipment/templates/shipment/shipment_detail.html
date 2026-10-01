@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Include Leaflet CSS and JS for map rendering -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container mx-auto px-4 py-6">
+    <!-- Header Navigation -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <a href="{{ url_for('shipment.create_shipment') }}" class="text-sm text-blue-600 hover:underline">← Back to
+                Shipments</a>
+            <h1 class="text-2xl font-bold text-gray-800 mt-1">Shipment #{{ shipment.id }} Details</h1>
+        </div>
+
+        <div class="flex gap-3">
+            <!-- Start Transit Action Button -->
+            <button id="startTransitBtn"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg shadow transition flex items-center gap-2">
+                🚀 Start Transit
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div id="statusAlert" class="hidden mb-6 p-4 rounded-lg text-sm"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Panel: Live Map & Simulation Info -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Leaflet Map Container -->
+            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-gray-800">Live Telematics Route</h3>
+                    <span id="liveProgressBadge"
+                        class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">
+                        Progress: 0%
+                    </span>
+                </div>
+                <div id="map" class="w-full h-96 rounded-lg bg-gray-100 border"></div>
+            </div>
+
+            <!-- Live Status Updates Box -->
+            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <h3 class="font-bold text-gray-800 mb-3">Telemetry Feed</h3>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-gray-50 p-3 rounded">
+                        <span class="block text-xs text-gray-500 uppercase">Speed</span>
+                        <span id="liveSpeed" class="text-lg font-bold text-gray-800">0 km/h</span>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <span class="block text-xs text-gray-500 uppercase">Current Status</span>
+                        <span id="liveStatus" class="text-lg font-bold text-gray-800">{{ shipment.status }}</span>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <span class="block text-xs text-gray-500 uppercase">Simulation ID</span>
+                        <span id="simIdDisplay" class="text-lg font-mono text-gray-600">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Metadata Information -->
+        <div class="space-y-6">
+            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Cargo Specifications</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Cargo Type:</span> <span
+                            class="font-semibold">{{ shipment.cargo_type }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Total Weight:</span> <span
+                            class="font-semibold">{{ shipment.total_weight_kg }} kg</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Consignment Value:</span> <span
+                            class="font-semibold">₹{{ shipment.consignment_value or 'N/A' }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Priority:</span> <span
+                            class="font-semibold text-red-600">{{ shipment.priority }}</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Assigned Truck</h3>
+                {% if shipment.truck %}
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Reg Number:</span> <span
+                            class="font-semibold">{{ shipment.truck.registration_number }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Category:</span> <span
+                            class="font-semibold">{{ shipment.truck.truck_type or shipment.truck.vehicle_category or
+                            'Standard' }}</span></div>
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400 italic">No truck assigned</p>
+                {% endif %}
+            </div>
+
+            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Documentation</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Supplier GSTIN:</span> <span
+                            class="font-mono text-xs">{{ shipment.supplier_gstin or 'N/A' }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Recipient GSTIN:</span> <span
+                            class="font-mono text-xs">{{ shipment.recipient_gstin or 'N/A' }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Invoice Number:</span> <span
+                            class="font-semibold">{{ shipment.invoice_number or 'N/A' }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">HSN Code:</span> <span
+                            class="font-semibold">{{ shipment.hsn_code or 'N/A' }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Initialize Map
+    const originLat = parseFloat("{{ shipment.origin_lat }}");
+    const originLon = parseFloat("{{ shipment.origin_lon }}");
+    const destLat = parseFloat("{{ shipment.destination_lat }}");
+    const destLon = parseFloat("{{ shipment.destination_lon }}");
+
+    const map = L.map('map').setView([originLat, originLon], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add markers
+    L.marker([originLat, originLon]).addTo(map).bindPopup("Origin").openPopup();
+    L.marker([destLat, destLon]).addTo(map).bindPopup("Destination");
+
+    // Dynamic truck marker
+    let truckMarker = L.marker([originLat, originLon]).addTo(map).bindPopup("Truck Location");
+
+    // 2. Simulation Polling Loop
+    let activeSimulationId = null;
+
+    async function pollTruckSimulation(simulationId, shipmentId) {
+        const FASTAPI_URL = "https://testingserver-supplynet.vercel.app";
+
+        const interval = setInterval(async () => {
+            try {
+                // Step A: Trigger next tick step on FastAPI
+                let tickResp = await fetch(`${FASTAPI_URL}/api/v1/simulations/${simulationId}/tick`, {
+                    method: 'POST'
+                });
+                let gpsData = await tickResp.json();
+
+                // Step B: Update frontend map & telematics feed
+                if (gpsData.current_position) {
+                    const lat = gpsData.current_position.lat;
+                    const lon = gpsData.current_position.lon;
+
+                    truckMarker.setLatLng([lat, lon]);
+                    map.panTo([lat, lon]);
+
+                    document.getElementById('liveSpeed').innerText = `${gpsData.speed_kmph || 65} km/h`;
+                    document.getElementById('liveStatus').innerText = gpsData.status || 'EN_ROUTE';
+                    document.getElementById('liveProgressBadge').innerText = `Progress: ${Math.round(gpsData.route_progress_percent || 0)}%`;
+
+                    // Step C: Record tick in Flask MySQL database
+                    await fetch(`/shipments/${shipmentId}/record-gps`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            latitude: lat,
+                            longitude: lon,
+                            speed_kmph: gpsData.speed_kmph || 65.0,
+                            route_progress_percent: gpsData.route_progress_percent,
+                            status: gpsData.status
+                        })
+                    });
+                }
+
+                // Stop loop on completion
+                if (gpsData.status === 'COMPLETED' || gpsData.route_progress_percent >= 100) {
+                    clearInterval(interval);
+                    showBanner("Trip arrived at destination!", "success");
+                }
+            } catch (err) {
+                console.error("Error ticking simulation:", err);
+            }
+        }, 3000);
+    }
+
+    // 3. Start Transit Button Event Listener
+    document.getElementById('startTransitBtn').addEventListener('click', async function () {
+        const shipmentId = "{{ shipment.id }}";
+        this.disabled = true;
+        this.innerText = "Initializing...";
+
+        try {
+            let response = await fetch("{{ url_for('shipment.start_transit', shipment_id=shipment.id) }}", {
+                method: 'POST'
+            });
+            let data = await response.json();
+
+            if (response.ok && data.simulation_id) {
+                activeSimulationId = data.simulation_id;
+                document.getElementById('simIdDisplay').innerText = activeSimulationId;
+                showBanner("Transit started! Engine is running simulation.", "success");
+
+                // Start tick loop
+                pollTruckSimulation(activeSimulationId, shipmentId);
+            } else {
+                showBanner(data.error || "Failed to register transit simulation", "danger");
+                this.disabled = false;
+                this.innerText = "🚀 Start Transit";
+            }
+        } catch (err) {
+            console.error("Start transit error:", err);
+            showBanner("Network error starting transit", "danger");
+            this.disabled = false;
+            this.innerText = "🚀 Start Transit";
+        }
+    });
+
+    function showBanner(msg, type) {
+        const alert = document.getElementById('statusAlert');
+        alert.classList.remove('hidden', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+        if (type === 'success') {
+            alert.classList.add('bg-green-100', 'text-green-700');
+        } else {
+            alert.classList.add('bg-red-100', 'text-red-700');
+        }
+        alert.innerText = msg;
+    }
+</script>
+{% endblock %}
