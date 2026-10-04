@@ -3,7 +3,8 @@ from flask_login import login_user, logout_user, current_user, login_required
 import os
 import requests
 from sn_app.app import db, bcrypt
-from sn_app.blueprints.auth.models import User, Note
+from sn_app.blueprints.auth.models import   User, Note
+
 
 from sn_app.blueprints.shipment.models import (
     Truck,
@@ -16,56 +17,34 @@ from sn_app.blueprints.shipment.models import (
     RerouteLog
 )
 
-# ----------------------------------------------------------------------
-# BLUEPRINT CONFIGURATION
-# ----------------------------------------------------------------------
 shipment = Blueprint(
     'shipment',
     __name__,
-    template_folder='templates'
+    template_folder='templates'  
 )
 
-# Base URL for the FastAPI simulation and optimization engine.
-# Can be switched between local (http://localhost:8000) and Vercel cloud by setting FASTAPI_AGENT_URL in .env.
 FASTAPI_AGENT_URL = os.getenv("FASTAPI_AGENT_URL", "http://localhost:8000").rstrip("/")
 
-
 # ----------------------------------------------------------------------
-# 1. CREATE SHIPMENT & INITIAL ROUTE OPTIMIZATION
+# CREATE SHIPMENT & CALL INITIAL ROUTE OPTIMIZATION AGENT
 # ----------------------------------------------------------------------
 @shipment.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_shipment():
-    """
-    Handles creating a new shipment and requesting multi-objective route optimization.
-
-    Workflow:
-      1. POST:
-         a. Validates that the selected truck exists, is active, and belongs to the current user.
-         b. Extracts cargo specs (weight, type, value) and endpoints (lat/lon, PIN codes).
-         c. Inserts base 'Shipment' and 'CargoDocument' rows into MySQL within a database transaction.
-         d. Calls FastAPI '/api/v1/optimize-route' passing truck axle limits, cargo weight, and coordinates.
-         e. Parses the returned GeoJSON LineString geometry and saves the 'PRIMARY' Route.
-         f. Parses returned corridor checkpoints and inserts sequential 'TripCityCheckpoint' rows.
-         g. Commits the transaction and redirects or returns JSON.
-      2. GET:
-         Renders the shipment creation view along with the user's active trucks and existing shipments.
-    """
     if request.method == 'POST':
         data = request.get_json() if request.is_json else request.form
 
-        # --- STEP 1: Verify Truck Authorization ---
+        # 1. Fetch & Verify Selected Truck
         truck_id = data.get('truck_id')
         truck = db.session.get(Truck, truck_id) if truck_id else None
-
-        # Ensure the selected truck is valid and owned by the logged-in enterprise account
+        
         if not truck or truck.user_id != current_user.id:
             if request.is_json:
                 return jsonify({"error": "Unauthorized or invalid truck selected"}), 400
             flash("Unauthorized or invalid truck selected.", "danger")
             return redirect(url_for('shipment.create_shipment'))
 
-        # Utility to parse incoming string numbers to float safely
+        # Helper function to parse numbers cleanly
         def parse_float(val, default=None):
             try:
                 return float(val) if val is not None and str(val).strip() != '' else default
@@ -73,7 +52,7 @@ def create_shipment():
                 return default
 
         try:
-            # --- STEP 2: Create Base Shipment Entity ---
+            # 2. Create Base Shipment Record
             new_shipment = Shipment(
                 user_id=current_user.id,
                 truck_id=truck.id,
@@ -90,9 +69,9 @@ def create_shipment():
                 status='CREATED'
             )
             db.session.add(new_shipment)
-            db.session.flush()  # Generates string UUID primary key for new_shipment.id
+            db.session.flush()  # Generates string UUID for new_shipment.id
 
-            # --- STEP 3: Create Cargo Compliance Documentation Record ---
+            # 3. Create Cargo Documentation Record
             cargo_doc = CargoDocument(
                 shipment_id=new_shipment.id,
                 supplier_gstin=data.get('supplier_gstin', '').strip() or None,
@@ -112,8 +91,7 @@ def create_shipment():
             flash(f"Error saving shipment: {str(e)}", "danger")
             return redirect(url_for('shipment.create_shipment'))
 
-        # --- STEP 4: Call FastAPI Optimization Engine ---
-        # Payload conforms to OptimizationRequest schema expected by /api/v1/optimize-route
+        # 4. Call FastAPI Optimization Agent
         opt_payload = {
             "shipment_id": new_shipment.id,
             "priority": new_shipment.priority,
@@ -141,14 +119,13 @@ def create_shipment():
         }
 
         try:
-            # Query optimization engine with a 15-second timeout
             resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/optimize-route", json=opt_payload, timeout=15)
-
+            
             if resp.status_code == 200:
                 opt_data = resp.json()
                 sel_route = opt_data.get('selected_route', {})
 
-                # --- STEP 5: Save Primary Optimized Highway Route ---
+                # Save Primary Optimized Route
                 active_route = Route(
                     shipment_id=new_shipment.id,
                     route_type='PRIMARY',
@@ -164,11 +141,11 @@ def create_shipment():
                     road_risk_score=parse_float(sel_route.get('road_risk_score')),
                     weather_risk_score=parse_float(sel_route.get('weather_risk_score')),
                     optimization_score=parse_float(sel_route.get('objective_j_score')),
-                    geometry=sel_route.get('geometry')  # Standard GeoJSON LineString dict stored in MySQL JSON column
+                    geometry=sel_route.get('geometry')  # Standard JSON payload for MySQL
                 )
                 db.session.add(active_route)
 
-                # --- STEP 6: Save Planned Highway Checkpoints ---
+                # Save Planned Checkpoints
                 for cp in opt_data.get('checkpoints', []):
                     checkpoint = TripCityCheckpoint(
                         shipment_id=new_shipment.id,
@@ -190,48 +167,40 @@ def create_shipment():
             print(f"Error calling optimization agent: {str(e)}")
             flash("Shipment created, but optimization agent was unreachable.", "warning")
 
-        # Handle JSON client responses vs standard browser form POST
+        # Response handling for JSON vs HTML Form submission
         if request.is_json:
             return jsonify({
-                "message": "Shipment created & optimized",
+                "message": "Shipment created & optimized", 
                 "shipment_id": new_shipment.id
             }), 201
-
         trucks = Truck.query.filter_by(user_id=current_user.id, active=True).all()
         user_shipments = Shipment.query.filter_by(user_id=current_user.id).order_by(Shipment.created_at.desc()).all()
         return render_template('shipment/shipments.html', trucks=trucks, shipments=user_shipments)
+        
 
-    # GET Request: Render shipment list directory & truck options for modal creation form
+   # GET Request: Render directory with user's shipments and active trucks for the modal form
     trucks = Truck.query.filter_by(user_id=current_user.id, active=True).all()
     user_shipments = Shipment.query.filter_by(user_id=current_user.id).order_by(Shipment.created_at.desc()).all()
+    
     return render_template('shipment/shipments.html', trucks=trucks, shipments=user_shipments)
 
-
-# ----------------------------------------------------------------------
-# 2. SHIPMENT DIRECTORY & STATUS MANAGEMENT
-# ----------------------------------------------------------------------
 @shipment.route('/manage', methods=['GET'])
 @login_required
 def manage_shipments():
-    """
-    Renders the fleet operations dashboard with all shipments, assigned trucks,
-    and associated route metrics for the authenticated user.
-    """
+    # Fetch user's active trucks and shipments with route details
     trucks = Truck.query.filter_by(user_id=current_user.id, active=True).all()
     user_shipments = Shipment.query.filter_by(user_id=current_user.id).order_by(Shipment.created_at.desc()).all()
+    
     return render_template('shipment/manage_shipments.html', shipments=user_shipments, trucks=trucks)
 
 
+# Updating shipment status
 @shipment.route('/shipments/<shipment_id>/status', methods=['POST'])
 @login_required
 def update_shipment_status(shipment_id):
-    """
-    Allows dispatchers to manually transition a shipment's operational status.
-    Allowed statuses: CREATED, EN_ROUTE, REROUTED, DELIVERED, CANCELLED.
-    """
     shipment_obj = Shipment.query.filter_by(id=shipment_id, user_id=current_user.id).first_or_404()
     new_status = request.form.get('status')
-
+    
     if new_status in ['CREATED', 'EN_ROUTE', 'REROUTED', 'DELIVERED', 'CANCELLED']:
         shipment_obj.status = new_status
         db.session.commit()
@@ -244,25 +213,14 @@ def update_shipment_status(shipment_id):
     return render_template('shipment/shipments.html', trucks=trucks, shipments=user_shipments)
 
 
-# ----------------------------------------------------------------------
-# 3. SHIPMENT DETAIL & LIVE TELEMATICS TRACKING PAGE
-# ----------------------------------------------------------------------
+# 1. Get Shipment Detail Page Route
 @shipment.route('/<shipment_id>', methods=['GET'])
 def get_shipment_detail(shipment_id):
-    """
-    Loads and renders the live telematics tracking page (shipment_detail.html).
-    Passes the shipment entity, active optimized route geometry, ordered corridor checkpoints,
-    and the target FastAPI simulation endpoint URL for browser polling.
-    """
     shipment = Shipment.query.get_or_404(shipment_id)
-    # Fetch primary active route containing GeoJSON polyline geometry
     active_route = Route.query.filter_by(shipment_id=shipment.id, is_active=True).first()
-    # Fetch ordered corridor checkpoints (Chandigarh -> Delhi -> Agra -> Visakhapatnam)
     checkpoints = TripCityCheckpoint.query.filter_by(shipment_id=shipment.id).order_by(TripCityCheckpoint.sequence_order.asc()).all()
-    # Fetch recent historical GPS breadcrumbs
     latest_gps = GPSUpdate.query.filter_by(shipment_id=shipment.id).order_by(GPSUpdate.timestamp.desc()).limit(15).all()
     google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY", "")
-
     return render_template(
         'shipment/shipment_detail.html',
         shipment=shipment,
@@ -274,24 +232,17 @@ def get_shipment_detail(shipment_id):
     )
 
 
+
+
+
+
+
 # ----------------------------------------------------------------------
-# 4. START TRANSIT & TRIGGER FASTAPI GPS SIMULATOR
+# 2. START TRANSIT & TRIGGER FASTAPI GPS SIMULATOR
 # ----------------------------------------------------------------------
 @shipment.route('/<shipment_id>/start-transit', methods=['POST'])
 @login_required
 def start_transit(shipment_id):
-    """
-    Triggers the start of live vehicle transit and initializes the GPS simulator.
-
-    Process:
-      1. Verifies the shipment exists, is authorized, and has an active route with geometry.
-      2. Assembles a payload including truck_id, route_id, speed (60 km/h), ticker interval (30s),
-         and inline route geometry.
-      3. Sends a POST request to FastAPI '/api/v1/simulations'.
-      4. On success (200/201): Updates Shipment.status to 'EN_ROUTE' in MySQL.
-      5. On conflict (409): Gracefully reconnects to the existing active simulation without failing.
-      6. Returns the simulation_id to the frontend so the client can begin polling.
-    """
     shipment_obj = Shipment.query.filter_by(id=shipment_id, user_id=current_user.id).first_or_404()
     active_route = Route.query.filter_by(shipment_id=shipment_obj.id, is_active=True).first()
 
@@ -326,11 +277,11 @@ def start_transit(shipment_id):
 
     try:
         resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/simulations", json=sim_payload, timeout=10)
-
+        
         if resp.status_code in [200, 201]:
             sim_data = resp.json()
-
-            # Mark shipment status as EN_ROUTE in MySQL
+            
+            # Update shipment status in Flask DB
             shipment_obj.status = 'EN_ROUTE'
             db.session.commit()
 
@@ -342,9 +293,9 @@ def start_transit(shipment_id):
                 "simulation_id": sim_id,
                 "data": sim_data
             }), 200
-
+            
         elif resp.status_code == 409:
-            # Simulation already running in memory - reconnect to active telemetry stream
+            # Simulation already running - fetch current telemetry snapshot to reconnect
             try:
                 exist_resp = requests.get(f"{FASTAPI_AGENT_URL}/api/v1/simulations/{shipment_obj.truck_id}", timeout=5)
                 if exist_resp.status_code == 200:
@@ -361,13 +312,13 @@ def start_transit(shipment_id):
             except Exception:
                 pass
             return jsonify({"error": "Simulation already running for this truck."}), 409
-
+            
         elif resp.status_code == 422:
             return jsonify({
                 "error": "FastAPI Validation Error",
                 "details": resp.json().get("detail")
             }), 422
-
+            
         else:
             return jsonify({
                 "error": f"FastAPI error ({resp.status_code}): {resp.text}"
@@ -376,116 +327,9 @@ def start_transit(shipment_id):
     except Exception as e:
         return jsonify({"error": f"Connection error to FastAPI agent: {str(e)}"}), 500
 
-
-# ----------------------------------------------------------------------
-# 5. TELEMETRY TICK PROXY (Auto-Recovery & MySQL Synchronization)
-# ----------------------------------------------------------------------
-@shipment.route('/<shipment_id>/telemetry-tick', methods=['POST'])
-def telemetry_tick(shipment_id):
-    """
-    Orchestration endpoint called by the frontend tracking loop every 2 seconds.
-
-    Responsibilities:
-      1. Ticks the vehicle position forward on the FastAPI simulation engine.
-      2. Auto-heals: If FastAPI reloaded or restarted, auto-recreates the simulation from MySQL route data.
-      3. Records the updated position into MySQL 'gps_updates' table.
-      4. Auto-completion: When route progress reaches 100% or status is COMPLETED, marks shipment DELIVERED.
-      5. Returns real-time coordinates, speed, heading, and progress back to the browser.
-    """
-    shipment_obj = db.session.get(Shipment, shipment_id)
-    if not shipment_obj:
-        return jsonify({"error": "Shipment not found"}), 404
-
-    active_route = Route.query.filter_by(shipment_id=shipment_obj.id, is_active=True).first()
-    data = request.get_json(silent=True) or {}
-    advance_seconds = float(data.get('advance_seconds', 30.0))
-    truck_id = str(shipment_obj.truck_id or shipment_obj.id)
-
-    sim_data = None
-
-    # Step A: Request the next tick from FastAPI simulator
-    try:
-        tick_resp = requests.post(
-            f"{FASTAPI_AGENT_URL}/api/v1/simulations/{truck_id}/tick",
-            json={"advance_seconds": advance_seconds},
-            timeout=4
-        )
-        if tick_resp.status_code == 200:
-            sim_data = tick_resp.json()
-        elif tick_resp.status_code == 404:
-            # Auto-Recovery: Simulation was lost in memory (e.g. FastAPI server reload).
-            # Auto-register and start simulation on-the-fly using the database route geometry.
-            sim_payload = {
-                "vehicle_id": truck_id,
-                "truck_id": truck_id,
-                "shipment_id": str(shipment_obj.id),
-                "route_id": str(active_route.id) if active_route else str(shipment_obj.id),
-                "speed_kmh": 60.0,
-                "interval_seconds": 30,
-                "auto_start": True,
-                "geometry": active_route.geometry if active_route else None,
-                "origin": {"lat": float(shipment_obj.origin_lat), "lon": float(shipment_obj.origin_lon)},
-                "destination": {"lat": float(shipment_obj.destination_lat), "lon": float(shipment_obj.destination_lon)}
-            }
-            start_resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/simulations", json=sim_payload, timeout=5)
-            if start_resp.status_code in [200, 201]:
-                tick_resp = requests.post(
-                    f"{FASTAPI_AGENT_URL}/api/v1/simulations/{truck_id}/tick",
-                    json={"advance_seconds": advance_seconds},
-                    timeout=4
-                )
-                if tick_resp.status_code == 200:
-                    sim_data = tick_resp.json()
-                else:
-                    sim_data = start_resp.json()
-    except Exception as e:
-        print("FastAPI simulation tick error:", str(e))
-
-    # Step B: Record the returned position into MySQL database
-    if sim_data:
-        lat = sim_data.get('latitude') or (sim_data.get('current_position', {}).get('lat') if sim_data.get('current_position') else sim_data.get('lat'))
-        lon = sim_data.get('longitude') or (sim_data.get('current_position', {}).get('lon') if sim_data.get('current_position') else sim_data.get('lon'))
-        if lat is not None and lon is not None:
-            try:
-                gps_entry = GPSUpdate(
-                    shipment_id=shipment_obj.id,
-                    truck_id=shipment_obj.truck_id,
-                    latitude=float(lat),
-                    longitude=float(lon),
-                    speed_kmph=float(sim_data.get('speed_kmph') or sim_data.get('speed_kmh') or 60.0),
-                    heading=float(sim_data.get('heading') or 0.0),
-                    source='FASTAPI_SIMULATOR'
-                )
-                db.session.add(gps_entry)
-
-                # Check if trip has reached destination
-                progress = sim_data.get('route_progress_percent')
-                if (progress is not None and float(progress) >= 100) or sim_data.get('status') == 'COMPLETED':
-                    shipment_obj.status = 'DELIVERED'
-                elif shipment_obj.status == 'CREATED':
-                    shipment_obj.status = 'EN_ROUTE'
-
-                db.session.commit()
-            except Exception as dbe:
-                db.session.rollback()
-                print("Error saving GPSUpdate to MySQL:", str(dbe))
-
-        return jsonify(sim_data), 200
-
-    return jsonify({"error": "Could not advance simulation telemetry"}), 500
-
-
-# ----------------------------------------------------------------------
-# 6. RAW GPS UPDATE WEBHOOK RECEIVER
-# ----------------------------------------------------------------------
 @shipment.route('/<shipment_id>/record-gps', methods=['POST'])
 @login_required
 def record_gps_update(shipment_id):
-    """
-    Standard telematics receiver endpoint for raw GPS updates.
-    Accepts latitude, longitude, speed, heading, and progress.
-    Saves the update directly to the 'gps_updates' table.
-    """
     shipment_obj = Shipment.query.filter_by(id=shipment_id, user_id=current_user.id).first_or_404()
     data = request.get_json()
 
@@ -510,7 +354,7 @@ def record_gps_update(shipment_id):
 
     db.session.add(gps_entry)
 
-    # Automatically mark shipment as delivered once progress hits 100%
+    # Check if the truck has reached destination (100% route progress)
     progress = data.get('route_progress_percent')
     if (progress is not None and float(progress) >= 100) or data.get('status') == 'COMPLETED':
         shipment_obj.status = 'DELIVERED'
@@ -521,20 +365,104 @@ def record_gps_update(shipment_id):
 
 
 # ----------------------------------------------------------------------
-# 7. DYNAMIC REROUTE CALLBACK (Agentic Disruption Engine)
+# 2.5 TELEMETRY TICK PROXY (Ensures Auto-Recovery & MySQL Synchronization)
+# ----------------------------------------------------------------------
+@shipment.route('/<shipment_id>/telemetry-tick', methods=['POST'])
+def telemetry_tick(shipment_id):
+    shipment_obj = db.session.get(Shipment, shipment_id)
+    if not shipment_obj:
+        return jsonify({"error": "Shipment not found"}), 404
+
+    active_route = Route.query.filter_by(shipment_id=shipment_obj.id, is_active=True).first()
+    data = request.get_json(silent=True) or {}
+    advance_seconds = float(data.get('advance_seconds', 30.0))
+    truck_id = str(shipment_obj.truck_id or shipment_obj.id)
+
+    sim_data = None
+
+    # Step 1: Request tick from FastAPI
+    try:
+        tick_resp = requests.post(
+            f"{FASTAPI_AGENT_URL}/api/v1/simulations/{truck_id}/tick",
+            json={"advance_seconds": advance_seconds},
+            timeout=4
+        )
+        if tick_resp.status_code == 200:
+            sim_data = tick_resp.json()
+        elif tick_resp.status_code == 404:
+            # Auto-register/start simulation on FastAPI if not in memory
+            sim_payload = {
+                "vehicle_id": truck_id,
+                "truck_id": truck_id,
+                "shipment_id": str(shipment_obj.id),
+                "route_id": str(active_route.id) if active_route else str(shipment_obj.id),
+                "speed_kmh": 60.0,
+                "interval_seconds": 30,
+                "auto_start": True,
+                "geometry": active_route.geometry if active_route else None,
+                "origin": {"lat": float(shipment_obj.origin_lat), "lon": float(shipment_obj.origin_lon)},
+                "destination": {"lat": float(shipment_obj.destination_lat), "lon": float(shipment_obj.destination_lon)}
+            }
+            start_resp = requests.post(f"{FASTAPI_AGENT_URL}/api/v1/simulations", json=sim_payload, timeout=5)
+            if start_resp.status_code in [200, 201]:
+                tick_resp = requests.post(
+                    f"{FASTAPI_AGENT_URL}/api/v1/simulations/{truck_id}/tick",
+                    json={"advance_seconds": advance_seconds},
+                    timeout=4
+                )
+                if tick_resp.status_code == 200:
+                    sim_data = tick_resp.json()
+                else:
+                    sim_data = start_resp.json()
+    except Exception as e:
+        print("FastAPI simulation error:", str(e))
+
+    # Step 2: Record in MySQL database
+    if sim_data:
+        lat = sim_data.get('latitude') or (sim_data.get('current_position', {}).get('lat') if sim_data.get('current_position') else sim_data.get('lat'))
+        lon = sim_data.get('longitude') or (sim_data.get('current_position', {}).get('lon') if sim_data.get('current_position') else sim_data.get('lon'))
+        if lat is not None and lon is not None:
+            try:
+                gps_entry = GPSUpdate(
+                    shipment_id=shipment_obj.id,
+                    truck_id=shipment_obj.truck_id,
+                    latitude=float(lat),
+                    longitude=float(lon),
+                    speed_kmph=float(sim_data.get('speed_kmph') or sim_data.get('speed_kmh') or 60.0),
+                    heading=float(sim_data.get('heading') or 0.0),
+                    source='FASTAPI_SIMULATOR'
+                )
+                db.session.add(gps_entry)
+
+                progress = sim_data.get('route_progress_percent')
+                if (progress is not None and float(progress) >= 100) or sim_data.get('status') == 'COMPLETED':
+                    shipment_obj.status = 'DELIVERED'
+                elif shipment_obj.status == 'CREATED':
+                    shipment_obj.status = 'EN_ROUTE'
+
+                db.session.commit()
+            except Exception as dbe:
+                db.session.rollback()
+                print("Error saving GPSUpdate to MySQL:", str(dbe))
+
+        return jsonify(sim_data), 200
+
+    return jsonify({"error": "Could not advance simulation telemetry"}), 500
+
+
+
+
+
+
+
+
+
+
+# ----------------------------------------------------------------------
+# 3. DYNAMIC REROUTE CALLBACK (Triggered by Agent Disruption Engine)
 # ----------------------------------------------------------------------
 @shipment.route('/<shipment_id>/reroute', methods=['POST'])
 def trigger_reroute(shipment_id):
-    """
-    Callback triggered when an autonomous AI agent detects a roadblock, weather storm,
-    or protest along the highway corridor and calculates a bypass detour.
-
-    Actions:
-      1. Flags the blocked checkpoint as 'BYPASSED'.
-      2. Inserts a new detour checkpoint node (e.g. bypassing Jhansi via detour city).
-      3. Deactivates the existing 'PRIMARY' route and creates an active 'DETOUR' route.
-      4. Appends reasoning to 'reroute_logs' audit trail.
-    """
     data = request.get_json()
     shipment_obj = db.session.get(Shipment, shipment_id)
     if not shipment_obj:
@@ -543,13 +471,12 @@ def trigger_reroute(shipment_id):
     blocked_city = data.get('blocked_city')
     bypass_city = data.get('bypass_city')
 
-    # Update Checkpoints: Set old city to BYPASSED and insert new detour checkpoint
+    # Update Checkpoints: Set old to BYPASSED and insert new detour checkpoint
     blocked_cp = TripCityCheckpoint.query.filter_by(shipment_id=shipment_obj.id, city_name=blocked_city).first()
     if blocked_cp:
         blocked_cp.status = 'BYPASSED'
         blocked_seq = blocked_cp.sequence_order
 
-        # Shift subsequent checkpoint sequence orders forward by 1
         TripCityCheckpoint.query.filter(
             TripCityCheckpoint.shipment_id == shipment_obj.id,
             TripCityCheckpoint.sequence_order > blocked_seq
@@ -585,7 +512,7 @@ def trigger_reroute(shipment_id):
     )
     db.session.add(new_route)
 
-    # Save LLM decision audit trail
+    # Log LLM reasoning
     shipment_obj.status = 'REROUTED'
     reroute_log = RerouteLog(
         shipment_id=shipment_obj.id,
@@ -599,17 +526,10 @@ def trigger_reroute(shipment_id):
 
     return jsonify({"message": "Shipment rerouted", "status": shipment_obj.status}), 200
 
-
-# ----------------------------------------------------------------------
-# 8. TRUCK FLEET MANAGEMENT & TOGGLES
-# ----------------------------------------------------------------------
+# Adding new truck and loading truck page
 @shipment.route('/trucks', methods=['GET', 'POST'])
 @login_required
 def manage_trucks():
-    """
-    Fleet management interface to register new trucks and view existing fleet.
-    Captures truck registration, vehicle type, capacity (tons), GVW (kg), and axle count.
-    """
     if request.method == 'POST':
         registration_number = request.form.get('registration_number', '').strip().upper()
         truck_type = request.form.get('truck_type')
@@ -619,12 +539,12 @@ def manage_trucks():
         height_m = request.form.get('height_m')
         width_m = request.form.get('width_m')
 
-        # Basic form validation
+        # Basic Validation
         if not registration_number or not truck_type or not capacity_tons:
             flash("Registration number, truck type, and capacity are required.", "danger")
             return redirect(url_for('shipment.manage_trucks'))
 
-        # Check for unique registration number
+        # Check duplicate registration
         existing_truck = Truck.query.filter_by(registration_number=registration_number).first()
         if existing_truck:
             flash(f"Truck with registration {registration_number} already exists.", "danger")
@@ -651,18 +571,13 @@ def manage_trucks():
 
         return redirect(url_for('shipment.manage_trucks'))
 
-    # GET Request: Load all trucks owned by the logged-in user
+    # GET Request
     user_trucks = Truck.query.filter_by(user_id=current_user.id).order_by(Truck.created_at.desc()).all()
     return render_template('shipment/trucks.html', trucks=user_trucks)
-
 
 @shipment.route('/trucks/<truck_id>/toggle', methods=['POST'])
 @login_required
 def toggle_truck_status(truck_id):
-    """
-    Toggles a truck's operational availability between Active (eligible for dispatch)
-    and Inactive (maintenance / out of service).
-    """
     truck = Truck.query.filter_by(id=truck_id, user_id=current_user.id).first_or_404()
     truck.active = not truck.active
     db.session.commit()
