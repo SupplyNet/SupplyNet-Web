@@ -7,6 +7,8 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 
+# Load .env from sn_app package directory as well as current working directory
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 load_dotenv()
 
 db = SQLAlchemy()

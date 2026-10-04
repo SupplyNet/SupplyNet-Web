@@ -1,190 +1,977 @@
 {% extends "base.html" %}
 
+{% block title %}Shipment #{{ shipment.id[:8] }} Live Telematics & GPS Tracking — SupplyNet{% endblock %}
+
+{% block head_content %}
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+    /* Radar Ping Animation for Moving Vehicle */
+    @keyframes radar-pulse {
+        0% {
+            transform: scale(0.6);
+            opacity: 0.9;
+        }
+
+        50% {
+            opacity: 0.4;
+        }
+
+        100% {
+            transform: scale(2.4);
+            opacity: 0;
+        }
+    }
+
+    .radar-pulse-ring {
+        animation: radar-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    /* Live Progress Bar Shimmer */
+    @keyframes progress-shimmer {
+        0% {
+            background-position: -200% 0;
+        }
+
+        100% {
+            background-position: 200% 0;
+        }
+    }
+
+    .progress-bar-shimmer {
+        background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #0284c7 100%);
+        background-size: 200% 100%;
+        animation: progress-shimmer 2.5s infinite linear;
+    }
+
+    /* Custom Leaflet Map Tooltips */
+    .leaflet-popup-content-wrapper {
+        border-radius: 1rem;
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        border: 1px solid #e2e8f0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .leaflet-popup-content {
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .leaflet-container {
+        font-family: 'Inter', sans-serif;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<!-- Include Leaflet CSS and JS for map rendering -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-<div class="container mx-auto px-4 py-6">
-    <!-- Header Navigation -->
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <a href="{{ url_for('shipment.create_shipment') }}" class="text-sm text-blue-600 hover:underline">← Back to
-                Shipments</a>
-            <h1 class="text-2xl font-bold text-gray-800 mt-1">Shipment #{{ shipment.id }} Details</h1>
-        </div>
+    <!-- ============================================================== -->
+    <!-- 1. TOP HEADER & TELEMATICS CONTROL BAR                         -->
+    <!-- ============================================================== -->
+    <div
+        class="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-6 transition-all">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                    <a href="{{ url_for('shipment.create_shipment') }}"
+                        class="hover:text-supply-600 transition flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Shipment Directory
+                    </a>
+                    <span>•</span>
+                    <span class="font-mono text-slate-400">ID: {{ shipment.id }}</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <h1
+                        class="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 tracking-tight flex items-center gap-2">
+                        <span>{{ shipment.cargo_type or 'General Consignment' }}</span>
+                    </h1>
 
-        <div class="flex gap-3">
-            <!-- Start Transit Action Button -->
-            <button id="startTransitBtn"
-                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg shadow transition flex items-center gap-2">
-                🚀 Start Transit
-            </button>
+                    <!-- Live Dynamic Status Badge -->
+                    <span id="headerStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm transition-all
+                        {% if shipment.status == 'EN_ROUTE' %}
+                            bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20
+                        {% elif shipment.status == 'DELIVERED' %}
+                            bg-blue-50 text-blue-700 ring-1 ring-blue-600/20
+                        {% else %}
+                            bg-slate-100 text-slate-700 ring-1 ring-slate-300
+                        {% endif %}">
+                        <span id="headerStatusDot" class="w-2 h-2 rounded-full
+                            {% if shipment.status == 'EN_ROUTE' %}
+                                bg-emerald-500 animate-pulse
+                            {% elif shipment.status == 'DELIVERED' %}
+                                bg-blue-500
+                            {% else %}
+                                bg-slate-400
+                            {% endif %}"></span>
+                        <span id="headerStatusText">{{ shipment.status }}</span>
+                    </span>
+
+                    <span
+                        class="text-xs px-2.5 py-1 rounded-md font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        Priority: <strong
+                            class="{% if shipment.priority == 'HIGH' %}text-rose-600{% else %}text-slate-800{% endif %}">{{
+                            shipment.priority }}</strong>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Simulation Controls Toolbar -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Simulation Speed Multiplier Selector -->
+                <div
+                    class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600">
+                    <span class="px-2 text-slate-400 hidden sm:inline">Speed:</span>
+                    <button type="button" onclick="setSpeedMultiplier(1)" id="speedBtn-1"
+                        class="speed-btn px-2.5 py-1 rounded-lg transition bg-white shadow-sm font-bold text-supply-700">1x</button>
+                    <button type="button" onclick="setSpeedMultiplier(2)" id="speedBtn-2"
+                        class="speed-btn px-2.5 py-1 rounded-lg transition hover:text-slate-900">2x</button>
+                    <button type="button" onclick="setSpeedMultiplier(5)" id="speedBtn-5"
+                        class="speed-btn px-2.5 py-1 rounded-lg transition hover:text-slate-900">5x</button>
+                    <button type="button" onclick="setSpeedMultiplier(10)" id="speedBtn-10"
+                        class="speed-btn px-2.5 py-1 rounded-lg transition hover:text-slate-900">10x</button>
+                </div>
+
+                <!-- Simulation Control Buttons -->
+                <button id="pauseResumeBtn" onclick="togglePauseSimulation()"
+                    class="hidden px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition flex items-center gap-1.5">
+                    <span id="pauseResumeIcon">⏸️</span>
+                    <span id="pauseResumeText">Pause</span>
+                </button>
+
+                <!-- Start Transit Primary Action Button -->
+                <button id="startTransitBtn"
+                    class="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-supply-600 to-indigo-600 hover:from-supply-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span id="startTransitText">{% if shipment.status == 'EN_ROUTE' %}🔄 Restart / Sync Transit{% else
+                        %}🚀 Start Live Transit{% endif %}</span>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Status Banner -->
-    <div id="statusAlert" class="hidden mb-6 p-4 rounded-lg text-sm"></div>
+    <!-- Alert / Toast Notification -->
+    <div id="statusAlert"
+        class="hidden p-4 rounded-xl text-sm font-medium border flex items-center justify-between transition-all"></div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left Panel: Live Map & Simulation Info -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Leaflet Map Container -->
-            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-gray-800">Live Telematics Route</h3>
-                    <span id="liveProgressBadge"
-                        class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">
-                        Progress: 0%
-                    </span>
+    <!-- ============================================================== -->
+    <!-- 2. HIGH-FREQUENCY TELEMETRICS KPI CARDS (Real-Time Gauges)      -->
+    <!-- ============================================================== -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <!-- Live Speed -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Speed</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black font-mono text-slate-900" id="kpiSpeed">0 <span
+                    class="text-xs font-sans font-medium text-slate-400">km/h</span></div>
+            <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpiSpeedStatus">Stationary</div>
+        </div>
+
+        <!-- Trip Progress -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Progress</span>
+                <svg class="w-3.5 h-3.5 text-supply-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black font-mono text-supply-600" id="kpiProgress">0.0<span
+                    class="text-xs font-sans font-medium text-slate-400">%</span></div>
+            <!-- Progress Mini Bar -->
+            <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div id="kpiProgressBar" class="h-1.5 rounded-full progress-bar-shimmer transition-all duration-500"
+                    style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Distance Travelled / Total -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Distance</span>
+                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </div>
+            <div class="text-xl sm:text-2xl font-black font-mono text-slate-900" id="kpiDistance">
+                0.0 <span class="text-xs font-sans font-medium text-slate-400">/ {{ active_route.distance_km if
+                    active_route and active_route.distance_km else '1860' }} km</span>
+            </div>
+            <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpiDistanceRemaining">Calculating remaining...
+            </div>
+        </div>
+
+        <!-- Dynamic ETA -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Est. Arrival</span>
+                <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="text-lg sm:text-xl font-bold font-display text-slate-900 truncate" id="kpiEta">
+                {% if active_route and active_route.duration_minutes %}
+                {{ (active_route.duration_minutes / 60)|round(1) }} hrs
+                {% else %}
+                ~38 hrs
+                {% endif %}
+            </div>
+            <div class="text-[11px] text-emerald-600 font-medium mt-1 truncate" id="kpiEtaRemaining">On Schedule</div>
+        </div>
+
+        <!-- Compass & Heading Bearing -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Heading</span>
+                <!-- Rotating Compass Pointer -->
+                <div id="kpiCompassIcon"
+                    class="w-4 h-4 text-rose-500 transition-transform duration-500 transform rotate-0">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
+                    </svg>
                 </div>
-                <div id="map" class="w-full h-96 rounded-lg bg-gray-100 border"></div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black font-mono text-slate-900" id="kpiHeading">0° <span
+                    class="text-xs font-sans font-medium text-slate-400">N</span></div>
+            <div class="text-[11px] text-slate-500 mt-1 truncate font-mono" id="kpiHeadingDirection">Due North</div>
+        </div>
+
+        <!-- Dynamic Fuel & Carbon Index -->
+        <div
+            class="bg-white/90 backdrop-blur rounded-2xl p-4 border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-supply-300 transition">
+            <div
+                class="flex items-center justify-between text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">
+                <span>Fuel & CO₂</span>
+                <span class="text-xs">⛽</span>
+            </div>
+            <div class="text-xl sm:text-2xl font-black font-mono text-slate-900" id="kpiFuel">0 <span
+                    class="text-xs font-sans font-medium text-slate-400">L</span></div>
+            <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpiCarbon">~0 kg CO₂</div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 3. MAIN INTERACTIVE MAP & WAYPOINT CORRIDOR PANEL              -->
+    <!-- ============================================================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Cols: High-Resolution Leaflet Map with Google Maps Layers -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+                <!-- Map Header & Layer Toolbar -->
+                <div
+                    class="p-3.5 px-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2 font-semibold text-slate-800">
+                        <span class="w-2.5 h-2.5 rounded-full bg-supply-500 animate-pulse"></span>
+                        <span class="font-display font-bold">Interactive Telematics Map</span>
+                        <span class="text-slate-400">|</span>
+                        <span id="mapLayerIndicator" class="text-slate-500 font-medium">Google Maps Roads</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Follow Truck Toggle -->
+                        <button type="button" id="toggleFollowBtn" onclick="toggleAutoCenter()"
+                            class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-medium transition flex items-center gap-1 shadow-2xs">
+                            <span id="followIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span id="followBtnText">Follow Truck: ON</span>
+                        </button>
+
+                        <!-- Fit Corridor Button -->
+                        <button type="button" onclick="fitRouteBounds()"
+                            class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-medium transition flex items-center gap-1 shadow-2xs">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Fit Route
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Leaflet Map Canvas -->
+                <div class="relative w-full h-[520px] bg-slate-100">
+                    <div id="map" class="w-full h-full z-10"></div>
+
+                    <!-- Floating Live Position HUD (Bottom Overlay) -->
+                    <div
+                        class="absolute bottom-3 left-3 right-3 sm:right-auto z-[400] bg-slate-900/85 backdrop-blur-md text-white p-2.5 px-4 rounded-xl shadow-lg border border-white/10 flex flex-wrap items-center gap-4 text-xs font-mono">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-400">LAT:</span>
+                            <span id="hudLat" class="font-bold text-sky-400">{{ "%.5f"|format(shipment.origin_lat)
+                                }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-400">LON:</span>
+                            <span id="hudLon" class="font-bold text-sky-400">{{ "%.5f"|format(shipment.origin_lon)
+                                }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-400">SIM ID:</span>
+                            <span id="hudSimId" class="text-slate-300 font-sans truncate max-w-[120px]">Ready</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Live Status Updates Box -->
-            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                <h3 class="font-bold text-gray-800 mb-3">Telemetry Feed</h3>
-                <div class="grid grid-cols-3 gap-4 text-center">
-                    <div class="bg-gray-50 p-3 rounded">
-                        <span class="block text-xs text-gray-500 uppercase">Speed</span>
-                        <span id="liveSpeed" class="text-lg font-bold text-gray-800">0 km/h</span>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded">
-                        <span class="block text-xs text-gray-500 uppercase">Current Status</span>
-                        <span id="liveStatus" class="text-lg font-bold text-gray-800">{{ shipment.status }}</span>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded">
-                        <span class="block text-xs text-gray-500 uppercase">Simulation ID</span>
-                        <span id="simIdDisplay" class="text-lg font-mono text-gray-600">--</span>
-                    </div>
+            <!-- Live Telemetry Stream Console Log -->
+            <div
+                class="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm p-4 text-slate-100 font-mono text-xs">
+                <div
+                    class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-sans font-semibold">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Live Telematics Stream Feed (Synced to MySQL `gps_updates`)
+                    </span>
+                    <span id="pingCountBadge" class="bg-slate-800 text-sky-400 px-2 py-0.5 rounded">0 Pings</span>
+                </div>
+                <div id="telemetryFeedBox"
+                    class="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar pr-2 text-slate-300">
+                    <div class="text-slate-500 italic">// Awaiting live GPS telemetry start... Click "Start Live
+                        Transit" to initiate vehicle broadcast.</div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Panel: Metadata Information -->
+        <!-- Right 1 Col: Corridor Checkpoints & Key Waypoint Timeline -->
         <div class="space-y-6">
-            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
-                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Cargo Specifications</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-500">Cargo Type:</span> <span
-                            class="font-semibold">{{ shipment.cargo_type }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Total Weight:</span> <span
-                            class="font-semibold">{{ shipment.total_weight_kg }} kg</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Consignment Value:</span> <span
-                            class="font-semibold">₹{{ shipment.consignment_value or 'N/A' }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Priority:</span> <span
-                            class="font-semibold text-red-600">{{ shipment.priority }}</span></div>
+
+            <!-- Checkpoint Corridor Tracker -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-bold font-display text-slate-900 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-supply-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        <span>Highway Checkpoints</span>
+                    </h3>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">
+                        {{ checkpoints|length if checkpoints else '9' }} Nodes
+                    </span>
+                </div>
+
+                <!-- Next Checkpoint Alert Banner -->
+                <div id="nextCheckpointBanner"
+                    class="p-3 bg-gradient-to-r from-supply-50 to-indigo-50 border border-supply-200 rounded-xl text-xs">
+                    <div class="text-slate-500 font-medium">Upcoming Waypoint:</div>
+                    <div id="nextCpName" class="font-bold text-supply-900 text-sm mt-0.5">En Route along Corridor</div>
+                    <div id="nextCpDist" class="text-slate-600 text-[11px] mt-0.5">Calculating distance to checkpoint...
+                    </div>
+                </div>
+
+                <!-- Sequential Timeline List -->
+                <div
+                    class="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+                    {% if checkpoints %}
+                    {% for cp in checkpoints %}
+                    <div class="relative flex items-start gap-3 group" id="cp-item-{{ cp.sequence_order }}">
+                        <div id="cp-dot-{{ cp.sequence_order }}"
+                            class="absolute -left-[19px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs
+                                {% if cp.status == 'PASSED' %}bg-emerald-500{% elif cp.status == 'BYPASSED' %}bg-amber-500{% else %}bg-slate-300{% endif %}">
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-xs text-slate-800">{{ cp.city_name }}</span>
+                                <span id="cp-badge-{{ cp.sequence_order }}"
+                                    class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded
+                                        {% if cp.status == 'PASSED' %}bg-emerald-100 text-emerald-700{% elif cp.status == 'BYPASSED' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                                    {{ cp.status }}
+                                </span>
+                            </div>
+                            <div class="text-[11px] font-mono text-slate-400 mt-0.5">
+                                Lat: {{ "%.3f"|format(cp.latitude) }}, Lon: {{ "%.3f"|format(cp.longitude) }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <!-- Standard Fallback Corridors -->
+                    <div class="text-xs text-slate-500 italic">Corridor checkpoints sync upon route optimization.</div>
+                    {% endif %}
                 </div>
             </div>
 
-            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
-                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Assigned Truck</h3>
+            <!-- Assigned Fleet Truck Specs -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-3">
+                <h3
+                    class="font-bold font-display text-slate-900 text-sm flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span class="flex items-center gap-2">
+                        <span>🚛</span>
+                        <span>Assigned Vehicle</span>
+                    </span>
+                    {% if shipment.truck %}
+                    <span
+                        class="font-mono text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                    {% endif %}
+                </h3>
+
                 {% if shipment.truck %}
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-500">Reg Number:</span> <span
-                            class="font-semibold">{{ shipment.truck.registration_number }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Category:</span> <span
-                            class="font-semibold">{{ shipment.truck.truck_type or shipment.truck.vehicle_category or
-                            'Standard' }}</span></div>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Registration:</span>
+                        <span class="font-bold font-mono text-slate-900">{{ shipment.truck.registration_number }}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Vehicle Category:</span>
+                        <span class="font-semibold text-slate-800">{{ shipment.truck.truck_type or
+                            shipment.truck.vehicle_category or 'Commercial Heavy (HCV)' }}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">GVW / Axle Count:</span>
+                        <span class="font-semibold text-slate-800">{{ shipment.truck.gvw_kg or '25,000' }} kg / {{
+                            shipment.truck.axle_count or 4 }} Axles</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-slate-500">Payload Capacity:</span>
+                        <span class="font-semibold text-slate-800">{{ shipment.truck.capacity_tons or '16' }}
+                            Tons</span>
+                    </div>
                 </div>
                 {% else %}
-                <p class="text-sm text-gray-400 italic">No truck assigned</p>
+                <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    No truck currently assigned. Assign a truck to start live simulation.
+                </div>
                 {% endif %}
             </div>
 
-            <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
-                <h3 class="font-bold text-gray-800 border-b pb-2 mb-3">Documentation</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-500">Supplier GSTIN:</span> <span
-                            class="font-mono text-xs">{{ shipment.supplier_gstin or 'N/A' }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Recipient GSTIN:</span> <span
-                            class="font-mono text-xs">{{ shipment.recipient_gstin or 'N/A' }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Invoice Number:</span> <span
-                            class="font-semibold">{{ shipment.invoice_number or 'N/A' }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">HSN Code:</span> <span
-                            class="font-semibold">{{ shipment.hsn_code or 'N/A' }}</span></div>
+            <!-- Route Optimization Financials & Risk Card -->
+            {% if active_route %}
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-3">
+                <h3
+                    class="font-bold font-display text-slate-900 text-sm flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span class="flex items-center gap-2">
+                        <span>📊</span>
+                        <span>Route Intelligence & Costs</span>
+                    </span>
+                    <span class="text-[11px] font-mono text-supply-600 bg-supply-50 px-2 py-0.5 rounded">J(r): {{
+                        active_route.optimization_score or '1.42' }}</span>
+                </h3>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div class="text-slate-500 text-[10px] uppercase font-semibold">Fuel Budget</div>
+                        <div class="font-bold text-slate-900 mt-0.5">₹{{ active_route.fuel_cost or '0' }}</div>
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div class="text-slate-500 text-[10px] uppercase font-semibold">Toll Charges</div>
+                        <div class="font-bold text-slate-900 mt-0.5">₹{{ active_route.toll_cost or '0' }}</div>
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div class="text-slate-500 text-[10px] uppercase font-semibold">Road Risk Index</div>
+                        <div class="font-bold text-amber-600 mt-0.5">{{ active_route.road_risk_score or '0.35' }}</div>
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div class="text-slate-500 text-[10px] uppercase font-semibold">Weather Watch</div>
+                        <div class="font-bold text-emerald-600 mt-0.5">{{ active_route.weather_risk_score or '0.18' }}
+                        </div>
+                    </div>
                 </div>
             </div>
+            {% endif %}
+
         </div>
     </div>
 </div>
 
+<!-- ============================================================== -->
+<!-- 4. CLIENT JAVASCRIPT: GOOGLE MAPS LAYERS + GPS POLLING ENGINE  -->
+<!-- ============================================================== -->
 <script>
-    // 1. Initialize Map
+    // -------------------------------------------------------------
+    // Configuration & Data Initializations
+    // -------------------------------------------------------------
     const originLat = parseFloat("{{ shipment.origin_lat }}");
     const originLon = parseFloat("{{ shipment.origin_lon }}");
     const destLat = parseFloat("{{ shipment.destination_lat }}");
     const destLon = parseFloat("{{ shipment.destination_lon }}");
+    const FASTAPI_URL = "{{ fastapi_url or 'http://localhost:8000' }}";
+    //const FASTAPI_URL = "{{ fastapi_url or 'https://testingserver-supplynet.vercel.app' }}";
+    const shipmentId = "{{ shipment.id }}";
+    const totalCorridorDistanceKm = parseFloat("{{ active_route.distance_km if active_route and active_route.distance_km else 1860 }}");
 
-    const map = L.map('map').setView([originLat, originLon], 6);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    // Add markers
-    L.marker([originLat, originLon]).addTo(map).bindPopup("Origin").openPopup();
-    L.marker([destLat, destLon]).addTo(map).bindPopup("Destination");
-
-    // Dynamic truck marker
-    let truckMarker = L.marker([originLat, originLon]).addTo(map).bindPopup("Truck Location");
-
-    // 2. Simulation Polling Loop
     let activeSimulationId = null;
+    let pollInterval = null;
+    let simulationSpeedMultiplier = 1;
+    let autoCenterOnTruck = true;
+    let isSimulationPaused = false;
+    let pingCounter = 0;
 
-    async function pollTruckSimulation(simulationId, shipmentId) {
-        const FASTAPI_URL = "https://testingserver-supplynet.vercel.app";
+    // Checkpoint Data from Backend for Real-Time Distance Comparison
+    const checkpointsData = [
+        {% if checkpoints %}
+        {% for cp in checkpoints %}
+        {
+            order: {{ cp.sequence_order }},
+            name: "{{ cp.city_name }}",
+            lat: parseFloat("{{ cp.latitude }}"),
+            lon: parseFloat("{{ cp.longitude }}"),
+            status: "{{ cp.status }}"
+        },
+        {% endfor %}
+        {% endif %}
+    ];
 
-        const interval = setInterval(async () => {
-            try {
-                // Step A: Trigger next tick step on FastAPI
-                let tickResp = await fetch(`${FASTAPI_URL}/api/v1/simulations/${simulationId}/tick`, {
-                    method: 'POST'
-                });
-                let gpsData = await tickResp.json();
+    // -------------------------------------------------------------
+    // 1. Initialize Map with Google Maps & Logistics Tile Layers
+    // -------------------------------------------------------------
+    const map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true
+    }).setView([originLat, originLon], 6);
 
-                // Step B: Update frontend map & telematics feed
-                if (gpsData.current_position) {
-                    const lat = gpsData.current_position.lat;
-                    const lon = gpsData.current_position.lon;
+    // Google Maps Roadmap Layer
+    const googleRoads = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Map data &copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
+    });
 
-                    truckMarker.setLatLng([lat, lon]);
-                    map.panTo([lat, lon]);
+    // Google Maps Satellite / Hybrid Layer
+    const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Imagery &copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
+    });
 
-                    document.getElementById('liveSpeed').innerText = `${gpsData.speed_kmph || 65} km/h`;
-                    document.getElementById('liveStatus').innerText = gpsData.status || 'EN_ROUTE';
-                    document.getElementById('liveProgressBadge').innerText = `Progress: ${Math.round(gpsData.route_progress_percent || 0)}%`;
+    // Clean Logistics Vector Basemap (CartoDB Positron)
+    const cartoClean = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CartoDB &copy; OpenStreetMap'
+    });
 
-                    // Step C: Record tick in Flask MySQL database
-                    await fetch(`/shipments/${shipmentId}/record-gps`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            latitude: lat,
-                            longitude: lon,
-                            speed_kmph: gpsData.speed_kmph || 65.0,
-                            route_progress_percent: gpsData.route_progress_percent,
-                            status: gpsData.status
-                        })
-                    });
-                }
+    // OpenStreetMap Standard
+    const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    });
 
-                // Stop loop on completion
-                if (gpsData.status === 'COMPLETED' || gpsData.route_progress_percent >= 100) {
-                    clearInterval(interval);
-                    showBanner("Trip arrived at destination!", "success");
-                }
-            } catch (err) {
-                console.error("Error ticking simulation:", err);
-            }
-        }, 3000);
+    // Add Google Roads by Default
+    googleRoads.addTo(map);
+
+    // Layer Switcher Control
+    const baseLayers = {
+        "Google Roads": googleRoads,
+        "Google Satellite / Hybrid": googleHybrid,
+        "Logistics Clean": cartoClean,
+        "OpenStreetMap": osmStandard
+    };
+    L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+
+    map.on('baselayerchange', function (e) {
+        document.getElementById('mapLayerIndicator').innerText = e.name;
+    });
+
+    // -------------------------------------------------------------
+    // 2. Custom Map Markers (Origin, Destination, Checkpoints, Truck)
+    // -------------------------------------------------------------
+    // Origin Marker
+    const originIcon = L.divIcon({
+        className: 'custom-origin-icon',
+        html: `
+            <div class="relative flex items-center justify-center">
+                <div class="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-lg border-2 border-white ring-2 ring-emerald-400">
+                    A
+                </div>
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+    L.marker([originLat, originLon], { icon: originIcon }).addTo(map)
+        .bindPopup(`
+            <div class="p-3">
+                <div class="text-[10px] font-bold uppercase text-emerald-600">Origin Depot</div>
+                <div class="font-bold text-slate-800 text-sm mt-0.5">PIN: {{ shipment.origin_pin or 'Origin' }}</div>
+                <div class="text-xs text-slate-500 font-mono mt-1">Lat: ${originLat.toFixed(4)}, Lon: ${originLon.toFixed(4)}</div>
+            </div>
+        `);
+
+    // Destination Marker
+    const destIcon = L.divIcon({
+        className: 'custom-dest-icon',
+        html: `
+            <div class="relative flex items-center justify-center">
+                <div class="w-8 h-8 rounded-full bg-rose-600 text-white font-bold text-xs flex items-center justify-center shadow-lg border-2 border-white ring-2 ring-rose-400">
+                    B
+                </div>
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+    L.marker([destLat, destLon], { icon: destIcon }).addTo(map)
+        .bindPopup(`
+            <div class="p-3">
+                <div class="text-[10px] font-bold uppercase text-rose-600">Final Destination</div>
+                <div class="font-bold text-slate-800 text-sm mt-0.5">PIN: {{ shipment.destination_pin or 'Destination' }}</div>
+                <div class="text-xs text-slate-500 font-mono mt-1">Lat: ${destLat.toFixed(4)}, Lon: ${destLon.toFixed(4)}</div>
+            </div>
+        `);
+
+    // Corridor Checkpoints Markers
+    checkpointsData.forEach((cp, idx) => {
+        const cpIcon = L.divIcon({
+            className: 'checkpoint-icon',
+            html: `
+                <div class="w-3.5 h-3.5 rounded-full bg-white border-2 border-indigo-600 shadow-sm flex items-center justify-center hover:scale-125 transition">
+                    <div class="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
+                </div>
+            `,
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+        });
+        L.marker([cp.lat, cp.lon], { icon: cpIcon }).addTo(map)
+            .bindPopup(`
+                <div class="p-2.5">
+                    <div class="text-[10px] font-bold uppercase text-indigo-600">Node #${cp.order}</div>
+                    <div class="font-bold text-slate-800 text-xs">${cp.name}</div>
+                    <div class="text-[10px] text-slate-400 font-mono">Lat: ${cp.lat.toFixed(4)}, Lon: ${cp.lon.toFixed(4)}</div>
+                </div>
+            `);
+    });
+
+    // Dynamic Truck Marker Icon Generator with Real Heading Angle
+    function getTruckMarkerIcon(heading = 0) {
+        return L.divIcon({
+            className: 'truck-marker-icon-wrapper',
+            html: `
+                <div class="relative flex items-center justify-center">
+                    <!-- Glowing Radar Wave Ping -->
+                    <div class="absolute -inset-3 rounded-full bg-sky-500/30 radar-pulse-ring pointer-events-none"></div>
+                    <!-- Heading Direction Indicator & Truck Body -->
+                    <div class="relative bg-gradient-to-tr from-sky-600 via-blue-600 to-indigo-700 text-white p-2.5 rounded-2xl shadow-2xl border-2 border-white ring-2 ring-sky-400/80 flex items-center justify-center transition-transform duration-300"
+                         style="transform: rotate(${heading}deg);">
+                        <svg class="w-5 h-5 drop-shadow" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-2 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                        </svg>
+                    </div>
+                </div>
+            `,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21]
+        });
     }
 
-    // 3. Start Transit Button Event Listener
+    let truckMarker = L.marker([originLat, originLon], {
+        icon: getTruckMarkerIcon(0),
+        zIndexOffset: 1000
+    }).addTo(map);
+
+    // Breadcrumb Polyline Trail (Past Travelled Path)
+    let breadcrumbLine = L.polyline([], {
+        color: '#10b981', // Emerald green
+        weight: 5,
+        opacity: 0.85,
+        lineCap: 'round'
+    }).addTo(map);
+
+    // Planned Full Route Polyline (Ahead Path)
+    let fullRouteLayer = null;
+    {% if active_route and active_route.geometry %}
+    try {
+        const routeGeometry = {{ active_route.geometry | tojson | safe }};
+        if (routeGeometry) {
+            fullRouteLayer = L.geoJSON(routeGeometry, {
+                style: {
+                    color: '#0284c7', // Brand supply blue
+                    weight: 4,
+                    dashArray: '6, 8',
+                    opacity: 0.75
+                }
+            }).addTo(map);
+            map.fitBounds(fullRouteLayer.getBounds(), { padding: [40, 40] });
+        }
+    } catch (e) {
+        console.warn("Could not parse route geometry:", e);
+    }
+    {% endif %}
+
+    function fitRouteBounds() {
+        if (fullRouteLayer) {
+            map.fitBounds(fullRouteLayer.getBounds(), { padding: [40, 40] });
+        } else {
+            const group = new L.featureGroup([
+                L.marker([originLat, originLon]),
+                L.marker([destLat, destLon])
+            ]);
+            map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        }
+    }
+
+    function toggleAutoCenter() {
+        autoCenterOnTruck = !autoCenterOnTruck;
+        const btn = document.getElementById('followBtnText');
+        const dot = document.getElementById('followIndicatorDot');
+        if (autoCenterOnTruck) {
+            btn.innerText = "Follow Truck: ON";
+            dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+        } else {
+            btn.innerText = "Follow Truck: OFF";
+            dot.className = "w-1.5 h-1.5 rounded-full bg-slate-400";
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 3. Telemetry Simulation Polling & Dynamic UI Rendering
+    // -------------------------------------------------------------
+    function setSpeedMultiplier(multiplier) {
+        simulationSpeedMultiplier = multiplier;
+        document.querySelectorAll('.speed-btn').forEach(b => {
+            b.classList.remove('bg-white', 'shadow-sm', 'font-bold', 'text-supply-700');
+            b.classList.add('text-slate-600');
+        });
+        const activeBtn = document.getElementById(`speedBtn-${multiplier}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('text-slate-600');
+            activeBtn.classList.add('bg-white', 'shadow-sm', 'font-bold', 'text-supply-700');
+        }
+    }
+
+    function getCompassDirection(heading) {
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const val = Math.floor((heading / 22.5) + 0.5);
+        return directions[val % 16];
+    }
+
+    function updateCheckpointsProgress(truckLat, truckLon) {
+        if (!checkpointsData || checkpointsData.length === 0) return;
+
+        let closestPending = null;
+        let minDistance = 999999;
+
+        checkpointsData.forEach(cp => {
+            // Distance in km using Haversine formula
+            const dLat = (cp.lat - truckLat) * Math.PI / 180;
+            const dLon = (cp.lon - truckLon) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(truckLat * Math.PI / 180) * Math.cos(cp.lat * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const dot = document.getElementById(`cp-dot-${cp.order}`);
+            const badge = document.getElementById(`cp-badge-${cp.order}`);
+
+            // If truck has passed latitude toward south or is within 15 km
+            if (truckLat <= cp.lat + 0.05) {
+                if (dot) dot.className = "absolute -left-[19px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs bg-emerald-500";
+                if (badge) {
+                    badge.className = "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700";
+                    badge.innerText = "PASSED";
+                }
+            } else {
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestPending = cp;
+                }
+            }
+        });
+
+        if (closestPending) {
+            document.getElementById('nextCpName').innerText = `Approaching: ${closestPending.name}`;
+            document.getElementById('nextCpDist').innerText = `~${minDistance.toFixed(1)} km to waypoint (Seq #${closestPending.order})`;
+        } else {
+            document.getElementById('nextCpName').innerText = "Approaching Final Destination";
+            document.getElementById('nextCpDist').innerText = "Entering destination delivery corridor";
+        }
+    }
+
+    function addTelemetryLogEntry(gpsData, lat, lon) {
+        pingCounter++;
+        document.getElementById('pingCountBadge').innerText = `${pingCounter} Pings`;
+
+        const feedBox = document.getElementById('telemetryFeedBox');
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+
+        const logItem = document.createElement('div');
+        logItem.className = "flex flex-wrap items-center justify-between gap-1 text-[11px] py-1 border-b border-slate-800/60";
+        logItem.innerHTML = `
+            <span class="text-sky-400 font-semibold">[${timeStr}]</span>
+            <span class="text-slate-300">Lat: ${lat.toFixed(4)}°, Lon: ${lon.toFixed(4)}°</span>
+            <span class="text-emerald-400 font-bold">${Math.round(gpsData.speed_kmph || gpsData.speed_kmh || 60)} km/h</span>
+            <span class="text-amber-400">${Math.round(gpsData.heading || 0)}° ${getCompassDirection(gpsData.heading || 0)}</span>
+            <span class="text-slate-500 text-[10px]">Synced to MySQL</span>
+        `;
+
+        // Keep last 15 logs
+        if (feedBox.children.length > 15) {
+            feedBox.removeChild(feedBox.lastElementChild);
+        }
+        feedBox.insertBefore(logItem, feedBox.firstChild);
+    }
+
+    function applyTelemetryUpdate(gpsData) {
+        if (!gpsData) return;
+
+        // Resolve Coordinates
+        const lat = gpsData.current_position ? gpsData.current_position.lat : (gpsData.latitude !== undefined ? gpsData.latitude : gpsData.lat);
+        const lon = gpsData.current_position ? gpsData.current_position.lon : (gpsData.longitude !== undefined ? gpsData.longitude : gpsData.lon);
+        const heading = gpsData.heading !== undefined ? gpsData.heading : 0.0;
+        const speed = gpsData.speed_kmph !== undefined ? gpsData.speed_kmph : (gpsData.speed_kmh || 60.0);
+        const progress = gpsData.route_progress_percent !== undefined ? gpsData.route_progress_percent : 0.0;
+
+        if (lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon)) {
+            // Update Leaflet Truck Marker Position & Rotate Towards Heading
+            truckMarker.setLatLng([lat, lon]);
+            truckMarker.setIcon(getTruckMarkerIcon(heading));
+
+            // Append point to Emerald Breadcrumb Trail
+            breadcrumbLine.addLatLng([lat, lon]);
+
+            // Auto-pan map if follow mode is active
+            if (autoCenterOnTruck) {
+                map.panTo([lat, lon], { animate: true, duration: 0.5 });
+            }
+
+            // Update Floating HUD Lat / Lon
+            document.getElementById('hudLat').innerText = lat.toFixed(5);
+            document.getElementById('hudLon').innerText = lon.toFixed(5);
+            if (gpsData.simulation_id || gpsData.vehicle_id) {
+                document.getElementById('hudSimId').innerText = gpsData.simulation_id || gpsData.vehicle_id;
+            }
+
+            // Update Top Ribbon Telematics KPI Cards
+            document.getElementById('kpiSpeed').innerHTML = `${Math.round(speed)} <span class="text-xs font-sans font-medium text-slate-400">km/h</span>`;
+            document.getElementById('kpiSpeedStatus').innerText = speed > 50 ? "Cruising Highway" : (speed > 10 ? "Moderate Transit" : "Stationary / Idle");
+
+            document.getElementById('kpiProgress').innerHTML = `${progress.toFixed(1)}<span class="text-xs font-sans font-medium text-slate-400">%</span>`;
+            document.getElementById('kpiProgressBar').style.width = `${Math.min(progress, 100)}%`;
+
+            const totalDist = totalCorridorDistanceKm > 0 ? totalCorridorDistanceKm : 1860.0;
+            const travelledKm = gpsData.travelled_km !== undefined ? gpsData.travelled_km : (totalDist * (progress / 100));
+            const remainingKm = Math.max(0, totalDist - travelledKm);
+
+            document.getElementById('kpiDistance').innerHTML = `${travelledKm.toFixed(1)} <span class="text-xs font-sans font-medium text-slate-400">/ ${totalDist.toFixed(1)} km</span>`;
+            document.getElementById('kpiDistanceRemaining').innerText = `${remainingKm.toFixed(1)} km remaining to destination`;
+
+            // Dynamic ETA Calculation
+            const remainingHours = speed > 0 ? (remainingKm / speed) : 0;
+            const hours = Math.floor(remainingHours);
+            const minutes = Math.round((remainingHours - hours) * 60);
+            document.getElementById('kpiEta').innerText = `${hours}h ${minutes}m`;
+            document.getElementById('kpiEtaRemaining').innerText = progress >= 100 ? "Arrived" : "Live ETA Target";
+
+            // Heading & Compass Needle
+            document.getElementById('kpiHeading').innerHTML = `${Math.round(heading)}° <span class="text-xs font-sans font-medium text-slate-400">${getCompassDirection(heading)}</span>`;
+            document.getElementById('kpiHeadingDirection').innerText = `Heading ${getCompassDirection(heading)}`;
+            document.getElementById('kpiCompassIcon').style.transform = `rotate(${heading}deg)`;
+
+            // Fuel & Emissions Estimates (~3.2 km/L for commercial freight)
+            const fuelLiters = (travelledKm / 3.2).toFixed(1);
+            const co2Kg = Math.round(fuelLiters * 2.68);
+            document.getElementById('kpiFuel').innerHTML = `${fuelLiters} <span class="text-xs font-sans font-medium text-slate-400">L</span>`;
+            document.getElementById('kpiCarbon').innerText = `~${co2Kg} kg CO₂ emitted`;
+
+            // Update Corridor Checkpoints Status
+            updateCheckpointsProgress(lat, lon);
+
+            // Add entry to Live Stream Log
+            addTelemetryLogEntry(gpsData, lat, lon);
+        }
+
+        // Completion Check
+        if (gpsData.status === 'COMPLETED' || progress >= 100) {
+            if (pollInterval) clearInterval(pollInterval);
+            document.getElementById('headerStatusText').innerText = 'DELIVERED';
+            document.getElementById('headerStatusBadge').className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm bg-blue-50 text-blue-700 ring-1 ring-blue-600/20';
+            document.getElementById('headerStatusDot').className = 'w-2 h-2 rounded-full bg-blue-500';
+            document.getElementById('pauseResumeBtn').classList.add('hidden');
+            document.getElementById('startTransitText').innerText = '🎉 Trip Completed';
+            showBanner("🎉 Truck successfully arrived at destination! Shipment Delivered.", "success");
+        }
+    }
+
+    async function doSingleTick() {
+        if (isSimulationPaused) return;
+
+        try {
+            const advanceSeconds = 30 * simulationSpeedMultiplier;
+
+            // 1. Primary: Query Flask telemetry-tick (same origin, auto-heals simulation, auto-saves to MySQL)
+            let tickResp = await fetch("{{ url_for('shipment.telemetry_tick', shipment_id=shipment.id) }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    advance_seconds: advanceSeconds,
+                    speed_multiplier: simulationSpeedMultiplier
+                })
+            });
+
+            // 2. Fallback: Query FastAPI simulation directly if Flask proxy encounters issue
+            if (!tickResp.ok) {
+                const targetSimId = activeSimulationId || "{{ shipment.truck_id or shipment.id }}";
+                tickResp = await fetch(`${FASTAPI_URL}/api/v1/simulations/${targetSimId}/tick`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ advance_seconds: advanceSeconds })
+                });
+            }
+
+            if (tickResp.ok) {
+                const gpsData = await tickResp.json();
+                applyTelemetryUpdate(gpsData);
+            }
+        } catch (err) {
+            console.error("Telemetry tick error:", err);
+        }
+    }
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        document.getElementById('pauseResumeBtn').classList.remove('hidden');
+        pollInterval = setInterval(doSingleTick, 2000); // Poll every 2 seconds for responsive animation
+    }
+
+    async function togglePauseSimulation() {
+        isSimulationPaused = !isSimulationPaused;
+        const icon = document.getElementById('pauseResumeIcon');
+        const text = document.getElementById('pauseResumeText');
+
+        if (isSimulationPaused) {
+            icon.innerText = "▶️";
+            text.innerText = "Resume";
+            const targetSimId = activeSimulationId || "{{ shipment.truck_id or shipment.id }}";
+            await fetch(`${FASTAPI_URL}/api/v1/simulations/${targetSimId}/pause`, { method: 'POST' }).catch(() => { });
+            showBanner("Simulation paused.", "info");
+        } else {
+            icon.innerText = "⏸️";
+            text.innerText = "Pause";
+            const targetSimId = activeSimulationId || "{{ shipment.truck_id or shipment.id }}";
+            await fetch(`${FASTAPI_URL}/api/v1/simulations/${targetSimId}/resume`, { method: 'POST' }).catch(() => { });
+            showBanner("Simulation resumed.", "success");
+            doSingleTick();
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 4. Start Transit Event Listener
+    // -------------------------------------------------------------
     document.getElementById('startTransitBtn').addEventListener('click', async function () {
-        const shipmentId = "{{ shipment.id }}";
-        this.disabled = true;
-        this.innerText = "Initializing...";
+        const textSpan = document.getElementById('startTransitText');
+        textSpan.innerText = "Connecting Engine...";
 
         try {
             let response = await fetch("{{ url_for('shipment.start_transit', shipment_id=shipment.id) }}", {
@@ -192,35 +979,60 @@
             });
             let data = await response.json();
 
-            if (response.ok && data.simulation_id) {
-                activeSimulationId = data.simulation_id;
-                document.getElementById('simIdDisplay').innerText = activeSimulationId;
-                showBanner("Transit started! Engine is running simulation.", "success");
+            if (response.ok) {
+                activeSimulationId = data.simulation_id || "{{ shipment.truck_id or shipment.id }}";
+                document.getElementById('hudSimId').innerText = activeSimulationId;
 
-                // Start tick loop
-                pollTruckSimulation(activeSimulationId, shipmentId);
+                textSpan.innerText = "🔄 Restart / Sync Transit";
+                this.classList.remove('from-supply-600', 'to-indigo-600');
+                this.classList.add('from-emerald-600', 'to-teal-600');
+
+                // Update Status Badge
+                document.getElementById('headerStatusText').innerText = 'EN_ROUTE';
+                document.getElementById('headerStatusBadge').className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20';
+                document.getElementById('headerStatusDot').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+
+                showBanner("🚀 Live Transit active! Engine broadcasting real-world GPS telematics.", "success");
+
+                // Execute immediate tick, then run polling loop
+                await doSingleTick();
+                startPolling();
             } else {
-                showBanner(data.error || "Failed to register transit simulation", "danger");
-                this.disabled = false;
-                this.innerText = "🚀 Start Transit";
+                showBanner(data.error || "Failed to initialize transit simulator", "danger");
+                textSpan.innerText = "🚀 Start Live Transit";
             }
         } catch (err) {
             console.error("Start transit error:", err);
-            showBanner("Network error starting transit", "danger");
-            this.disabled = false;
-            this.innerText = "🚀 Start Transit";
+            showBanner("Network connection error to GPS engine", "danger");
+            textSpan.innerText = "🚀 Start Live Transit";
         }
     });
 
+    // Auto-Resume tracking if already En Route
+    {% if shipment.status == 'EN_ROUTE' and shipment.truck_id %}
+    activeSimulationId = "{{ shipment.truck_id }}";
+    document.getElementById('hudSimId').innerText = activeSimulationId;
+    document.getElementById('pauseResumeBtn').classList.remove('hidden');
+    // Execute immediate tick on page load so gauges populate right away
+    doSingleTick().then(() => {
+        startPolling();
+    });
+    {% endif %}
+
     function showBanner(msg, type) {
         const alert = document.getElementById('statusAlert');
-        alert.classList.remove('hidden', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+        alert.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-rose-50', 'text-rose-800', 'border-rose-200', 'bg-blue-50', 'text-blue-800', 'border-blue-200');
         if (type === 'success') {
-            alert.classList.add('bg-green-100', 'text-green-700');
+            alert.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+        } else if (type === 'info') {
+            alert.classList.add('bg-blue-50', 'text-blue-800', 'border-blue-200');
         } else {
-            alert.classList.add('bg-red-100', 'text-red-700');
+            alert.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200');
         }
-        alert.innerText = msg;
+        alert.innerHTML = `
+            <span>${msg}</span>
+            <button onclick="this.parentElement.classList.add('hidden')" class="text-xs font-bold opacity-60 hover:opacity-100 ml-4">✕</button>
+        `;
     }
 </script>
 {% endblock %}
