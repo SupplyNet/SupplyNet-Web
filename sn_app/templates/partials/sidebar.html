@@ -38,10 +38,13 @@
             </a>
 
             <!-- Active Trips & OSRM -->
-            <a href="#"
-                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent transition-colors duration-150">
-                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-supply-600 transition-colors" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{{ url_for('shipment.manage_trucks') }}"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-150 {{ 'text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm' if request.endpoint == 'shipment.manage_trucks' else 'text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent' }}">
+                {% if request.endpoint == 'shipment.manage_trucks' %}
+                <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-supply-600 rounded-r-full"></span>
+                {% endif %}
+                <svg class="w-4 h-4 shrink-0 {{ 'text-supply-600' if request.endpoint == 'shipment.manage_trucks' else 'text-slate-400 group-hover:text-supply-600' }} transition-colors"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
@@ -60,10 +63,13 @@
             </a>
 
             <!-- Add New Shipment -->
-            <a href="{{ url_for('shipment.create_shipment') }}#reroute-demo"
-                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent transition-colors duration-150">
-                <svg class="w-4 h-4 shrink-0 text-slate-400 group-hover:text-supply-600 transition-colors" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{{ url_for('shipment.create_shipment') }}"
+                class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-150 {{ 'text-supply-700 bg-supply-50/90 border border-supply-200/80 shadow-sm' if request.endpoint == 'shipment.create_shipment' else 'text-slate-600 hover:text-supply-700 hover:bg-slate-50 border border-transparent' }}">
+                {% if request.endpoint == 'shipment.create_shipment' %}
+                <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-supply-600 rounded-r-full"></span>
+                {% endif %}
+                <svg class="w-4 h-4 shrink-0 {{ 'text-supply-600' if request.endpoint == 'shipment.create_shipment' else 'text-slate-400 group-hover:text-supply-600' }} transition-colors"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>

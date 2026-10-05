@@ -1,465 +1,522 @@
 {% extends "base.html" %}
 
-{% block title %}Enterprise Dashboard — SupplyNet{% endblock %}
+{% block title %}Dashboard — SupplyNet{% endblock %}
+
+{% block head_content %}
+{% if active_shipment %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+    #dashboard-route-map { z-index: 0; }
+    #dashboard-route-map .leaflet-container { font-family: Inter, sans-serif; border-radius: 0.5rem; }
+</style>
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
 
-    <!-- ================= SECTION 1: EXECUTIVE TELEMETRY METRICS ================= -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-        <!-- Metric 1: Total Active Shipments -->
-        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Shipments</span>
-                <div class="rounded-lg bg-supply-50 p-2 text-supply-600">
-                    <i class="fa-solid fa-boxes-packing text-sm"></i>
-                </div>
-            </div>
-            <div class="mt-2 flex items-baseline gap-2">
-                <span class="font-display text-2xl font-extrabold text-slate-900">
-                    {{ active_shipments_count if active_shipments_count is defined else shipments|length }}
-                </span>
-                <span class="text-xs font-medium text-emerald-600">
-                    <i class="fa-solid fa-arrow-up"></i> Live
-                </span>
-            </div>
-            <p class="mt-1 font-mono text-[11px] text-slate-500">
-                {{ en_route_count|default(0) }} En Route · {{ created_count|default(0) }} Pending Dispatch
-            </p>
-        </div>
-
-        <!-- Metric 2: Disruption Risk Level -->
-        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Disruption Risk</span>
-                <div class="rounded-lg bg-rose-50 p-2 text-rose-600">
-                    <i class="fa-solid fa-triangle-exclamation text-sm"></i>
-                </div>
-            </div>
-            <div class="mt-2 flex items-baseline gap-2">
-                {% if active_disruptions %}
-                <span class="font-display text-2xl font-extrabold text-rose-600">HIGH</span>
-                <span class="text-xs font-medium text-rose-600">{{ active_disruptions|length }} Active</span>
-                {% else %}
-                <span class="font-display text-2xl font-extrabold text-emerald-600">LOW</span>
-                <span class="text-xs font-medium text-emerald-600">Routes Clear</span>
+    <!-- Welcome & quick actions -->
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-supply-600">Operations overview</p>
+            <h1 class="font-display text-xl font-bold text-slate-900 sm:text-2xl">
+                Hello, {{ current_user.name.split()[0] if current_user.name else 'there' }}
+            </h1>
+            <p class="mt-1 max-w-xl text-sm text-slate-600">
+                {% if current_user.enterprise_name %}
+                <span class="font-medium text-slate-800">{{ current_user.enterprise_name }}</span> —
                 {% endif %}
-            </div>
-            <p class="mt-1 font-mono text-[11px] text-slate-500 truncate">
-                {% if active_disruptions %}
-                {{ active_disruptions[0].type }} @ {{ active_disruptions[0].affected_city or 'Geofence' }}
-                {% else %}
-                PostGIS Geofence Normal
-                {% endif %}
+                Track shipments, fleet availability, route costs, and disruption alerts in one place.
             </p>
         </div>
-
-        <!-- Metric 3: AI Dynamic Reroutes -->
-        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">AI Reroute Audit</span>
-                <div class="rounded-lg bg-purple-50 p-2 text-purple-600">
-                    <i class="fa-solid fa-brain text-sm"></i>
-                </div>
-            </div>
-            <div class="mt-2 flex items-baseline gap-2">
-                <span class="font-display text-2xl font-extrabold text-slate-900">
-                    {{ reroute_logs|length if reroute_logs is defined else 0 }}
-                </span>
-                <span class="text-xs font-medium text-purple-600">Multi-Agent</span>
-            </div>
-            <p class="mt-1 font-mono text-[11px] text-slate-500">
-                LLM Agent Mesh Validated
-            </p>
+        <div class="flex flex-wrap gap-2 shrink-0">
+            <a href="{{ url_for('shipment.create_shipment') }}"
+                class="inline-flex items-center gap-2 rounded-xl bg-supply-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-supply-700 transition-colors">
+                <i class="fa-solid fa-plus"></i> New shipment
+            </a>
+            <a href="{{ url_for('shipment.manage_shipments') }}"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:border-supply-300 hover:text-supply-700 transition-colors">
+                <i class="fa-solid fa-list"></i> All shipments
+            </a>
+            <a href="{{ url_for('shipment.manage_trucks') }}"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:border-supply-300 hover:text-supply-700 transition-colors">
+                <i class="fa-solid fa-truck"></i> Fleet ({{ active_truck_count }}/{{ truck_count }} active)
+            </a>
         </div>
-
-        <!-- Metric 4: Optimization Index -->
-        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Fleet Efficiency</span>
-                <div class="rounded-lg bg-emerald-50 p-2 text-emerald-600">
-                    <i class="fa-solid fa-gauge-high text-sm"></i>
-                </div>
-            </div>
-            <div class="mt-2 flex items-baseline gap-2">
-                <span class="font-display text-2xl font-extrabold text-slate-900">94.8%</span>
-                <span class="text-xs font-medium text-emerald-600"><i class="fa-solid fa-arrow-up"></i> +1.2%</span>
-            </div>
-            <p class="mt-1 font-mono text-[11px] text-slate-500">
-                OSRM Cost Score: Min $J(r)$
-            </p>
-        </div>
-
     </div>
 
-    <!-- ================= SECTION 2: SPATIAL ROUTE TRACKER & MULTI-AGENT LOGS ================= -->
+    <!-- KPI row -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-500">Open shipments</span>
+                <span class="rounded-lg bg-supply-50 p-2 text-supply-600"><i class="fa-solid fa-boxes-stacked text-sm"></i></span>
+            </div>
+            <p class="mt-2 font-display text-2xl font-extrabold text-slate-900">{{ active_shipments_count }}</p>
+            <p class="mt-1 text-[11px] text-slate-500">
+                {{ status_counts.en_route }} in transit · {{ status_counts.created }} awaiting dispatch
+                {% if status_counts.rerouted %} · {{ status_counts.rerouted }} rerouted{% endif %}
+            </p>
+        </div>
+
+        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-500">Network disruptions</span>
+                <span class="rounded-lg bg-amber-50 p-2 text-amber-600"><i class="fa-solid fa-cloud-bolt text-sm"></i></span>
+            </div>
+            <p class="mt-2 font-display text-2xl font-extrabold
+                {% if disruption_level == 'high' %}text-rose-600{% elif disruption_level == 'elevated' %}text-amber-600{% elif disruption_level == 'moderate' %}text-amber-500{% else %}text-emerald-600{% endif %}">
+                {% if disruption_level == 'clear' %}All clear{% elif disruption_level == 'high' %}High{% elif disruption_level == 'elevated' %}Elevated{% else %}Moderate{% endif %}
+            </p>
+            <p class="mt-1 text-[11px] text-slate-500 line-clamp-2">{{ disruption_summary }}</p>
+        </div>
+
+        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-500">Route plan (active)</span>
+                <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600"><i class="fa-solid fa-road text-sm"></i></span>
+            </div>
+            <p class="mt-2 font-display text-2xl font-extrabold text-slate-900">{{ total_planned_km }} <span class="text-base font-semibold text-slate-500">km</span></p>
+            <p class="mt-1 text-[11px] text-slate-500">
+                Est. fuel + toll: ₹{{ "{:,.0f}".format(total_estimated_cost) if total_estimated_cost else '0' }}
+            </p>
+        </div>
+
+        <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-500">Reroutes & priority</span>
+                <span class="rounded-lg bg-purple-50 p-2 text-purple-600"><i class="fa-solid fa-route text-sm"></i></span>
+            </div>
+            <p class="mt-2 font-display text-2xl font-extrabold text-slate-900">{{ reroute_log_count }}</p>
+            <p class="mt-1 text-[11px] text-slate-500">
+                {{ high_priority_open }} high-priority open · {{ status_counts.delivered }} delivered
+            </p>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-        <!-- Left Workspace: Active Shipment Map & Sequential Checkpoints (7 Cols) -->
-        <div class="flex flex-col gap-4 lg:col-span-7">
+        <!-- Focus shipment -->
+        <div class="lg:col-span-7 space-y-4">
             {% if active_shipment %}
-            <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-
-                <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+                <div class="mb-3 flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
                     <div>
-                        <span class="font-mono text-xs font-bold text-supply-600">SHIPMENT #{{
-                            active_shipment.id[:8]|upper }}</span>
+                        <p class="text-[11px] font-semibold uppercase text-slate-400">Shipment at a glance</p>
                         <h2 class="font-display text-base font-bold text-slate-900">
-                            Cargo: {{ active_shipment.cargo_type or 'General Goods' }}
-                            <span class="text-xs font-normal text-slate-500">({{ active_shipment.total_weight_kg or 0 }}
-                                kg)</span>
+                            {{ active_shipment.cargo_type or 'General cargo' }}
+                            <span class="text-xs font-normal text-slate-500">#{{ active_shipment.id[:8]|upper }}</span>
                         </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            {{ active_shipment.origin_pin or 'Origin' }}
+                            → {{ active_shipment.destination_pin or 'Destination' }}
+                            · {{ active_shipment.total_weight_kg or 0 }} kg · {{ active_shipment.priority }} priority
+                        </p>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            {% if request.args.get('focus_shipment_id') %}
+                            Pinned from your list below. Use <strong class="text-slate-500">Highlight</strong> on another row to switch.
+                            {% else %}
+                            Auto-selected: your in-transit or rerouted load, or the most recent shipment.
+                            {% endif %}
+                        </p>
                     </div>
-                    <div>
-                        {% if active_shipment.status == 'REROUTED' %}
-                        <span
-                            class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                            <i class="fa-solid fa-route"></i> Rerouted
+                    <div class="flex flex-wrap items-center gap-2">
+                        {% set st = active_shipment.status %}
+                        <span class="rounded-full border px-2.5 py-1 text-xs font-semibold
+                            {% if st == 'EN_ROUTE' %}border-emerald-200 bg-emerald-50 text-emerald-700
+                            {% elif st == 'REROUTED' %}border-amber-200 bg-amber-50 text-amber-700
+                            {% elif st == 'DELIVERED' %}border-slate-200 bg-slate-100 text-slate-700
+                            {% elif st == 'DELAYED' %}border-rose-200 bg-rose-50 text-rose-700
+                            {% else %}border-blue-200 bg-blue-50 text-blue-700{% endif %}">
+                            {{ st.replace('_', ' ').title() }}
                         </span>
-                        {% elif active_shipment.status == 'EN_ROUTE' %}
-                        <span
-                            class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            <i class="fa-solid fa-truck-fast"></i> En Route
-                        </span>
-                        {% else %}
-                        <span
-                            class="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                            {{ active_shipment.status }}
-                        </span>
-                        {% endif %}
+                        <a href="{{ url_for('shipment.get_shipment_detail', shipment_id=active_shipment.id) }}"
+                            class="rounded-lg border border-supply-200 bg-white px-3 py-1.5 text-xs font-semibold text-supply-700 hover:bg-supply-50 transition-colors">
+                            Simulation &amp; full controls
+                        </a>
                     </div>
                 </div>
 
-                <!-- Telemetry & Coordinate Summary Bar -->
-                <div class="mb-3 grid grid-cols-2 gap-2 font-mono text-[11px] sm:grid-cols-4">
-                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2">
-                        <span class="block text-[10px] text-slate-400">TRUCK ASSIGNED</span>
-                        <span class="font-bold text-slate-800">{{ active_shipment.truck.registration_number if
-                            active_shipment.truck else 'Unassigned' }}</span>
+                <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
+                        <span class="block text-[10px] text-slate-400 uppercase">Truck</span>
+                        <span class="font-semibold text-slate-800">{{ active_shipment.truck.registration_number if active_shipment.truck else 'Not assigned' }}</span>
                     </div>
-                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2">
-                        <span class="block text-[10px] text-slate-400">ORIGIN PIN</span>
-                        <span class="font-bold text-slate-800">{{ active_shipment.origin_pin or 'N/A' }}</span>
+                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
+                        <span class="block text-[10px] text-slate-400 uppercase">Value</span>
+                        <span class="font-semibold text-slate-800">{{ active_shipment.currency }} {{ "{:,.0f}".format(active_shipment.consignment_value) if active_shipment.consignment_value else '—' }}</span>
                     </div>
-                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2">
-                        <span class="block text-[10px] text-slate-400">DESTINATION PIN</span>
-                        <span class="font-bold text-slate-800">{{ active_shipment.destination_pin or 'N/A' }}</span>
+                    {% if active_route %}
+                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
+                        <span class="block text-[10px] text-slate-400 uppercase">Active route</span>
+                        <span class="font-semibold text-slate-800">{{ active_route.route_type|title }} · {{ active_route.distance_km or '—' }} km</span>
                     </div>
-                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2">
-                        <span class="block text-[10px] text-slate-400">VALUATION</span>
-                        <span class="font-bold text-slate-800">{{ active_shipment.currency }} {{
-                            "{:,.2f}".format(active_shipment.consignment_value) if active_shipment.consignment_value
-                            else 'N/A' }}</span>
+                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
+                        <span class="block text-[10px] text-slate-400 uppercase">ETA (plan)</span>
+                        <span class="font-semibold text-slate-800">{% if active_route.duration_minutes %}{{ (active_route.duration_minutes // 60)|int }}h {{ (active_route.duration_minutes % 60)|int }}m{% else %}—{% endif %}</span>
                     </div>
-                </div>
-
-                <!-- Map / Coordinate Bounds Visualization Canvas -->
-                <div class="relative h-64 w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
-                    <div
-                        class="absolute inset-0 opacity-20 bg-[radial-gradient(#0ea5e9_1px,transparent_1px)] [background-size:16px_16px]">
-                    </div>
-
-                    <svg class="absolute inset-0 h-full w-full stroke-current text-slate-700" stroke-width="2"
-                        fill="none">
-                        <path d="M 50 180 Q 220 40 450 120" stroke="#0ea5e9" stroke-width="3" />
-                        {% if active_shipment.status == 'REROUTED' %}
-                        <path d="M 180 105 Q 260 170 340 125" stroke="#f59e0b" stroke-dasharray="4,4"
-                            stroke-width="2.5" />
-                        {% endif %}
-                    </svg>
-
-                    <!-- Origin Badge -->
-                    <div
-                        class="absolute left-4 top-36 flex items-center gap-1.5 rounded border border-slate-700 bg-slate-900/90 px-2 py-1 font-mono text-[10px] text-white shadow">
-                        <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                        Lat: {{ active_shipment.origin_lat|round(4) }}, Lon: {{ active_shipment.origin_lon|round(4) }}
-                    </div>
-
-                    <!-- Destination Badge -->
-                    <div
-                        class="absolute right-4 top-20 flex items-center gap-1.5 rounded border border-slate-700 bg-slate-900/90 px-2 py-1 font-mono text-[10px] text-white shadow">
-                        <span class="h-2 w-2 rounded-full bg-supply-400"></span>
-                        Lat: {{ active_shipment.destination_lat|round(4) }}, Lon: {{
-                        active_shipment.destination_lon|round(4) }}
-                    </div>
-
-                    <!-- Latest GPS Breadcrumb readout -->
-                    {% if active_shipment.gps_updates %}
-                    {% set latest_gps = active_shipment.gps_updates[-1] %}
-                    <div
-                        class="absolute bottom-3 left-3 flex items-center gap-3 rounded-md border border-slate-800 bg-slate-950/90 px-3 py-1.5 font-mono text-[10px] text-slate-300 backdrop-blur-md">
-                        <span class="flex h-2 w-2 relative">
-                            <span
-                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <div>Live Telematics: <span class="text-emerald-400">{{ latest_gps.speed_kmph or 0 }}
-                                km/h</span></div>
-                        <div>Source: <span class="text-supply-400">{{ latest_gps.source }}</span></div>
+                    {% else %}
+                    <div class="col-span-2 rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-2.5 text-amber-800">
+                        <span class="font-semibold">No optimized route yet.</span>
+                        <span class="block text-[11px] mt-0.5">Create or re-run optimization from the shipments page.</span>
                     </div>
                     {% endif %}
                 </div>
 
-                <!-- Sequential Trip Checkpoint Bar (TripCityCheckpoint Model) -->
-                <div class="mt-4 border-t border-slate-100 pt-3">
-                    <span class="font-mono text-[11px] font-semibold uppercase text-slate-500">Dynamic City Checkpoint
-                        Sequence</span>
+                {% if active_route and (active_route.road_risk_score is not none or active_route.weather_risk_score is not none) %}
+                <div class="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-600">
+                    {% if active_route.road_risk_score is not none %}
+                    <span class="rounded-md bg-slate-100 px-2 py-1">Road risk: <strong>{{ (active_route.road_risk_score * 100)|round(0)|int }}%</strong></span>
+                    {% endif %}
+                    {% if active_route.weather_risk_score is not none %}
+                    <span class="rounded-md bg-slate-100 px-2 py-1">Weather risk: <strong>{{ (active_route.weather_risk_score * 100)|round(0)|int }}%</strong></span>
+                    {% endif %}
+                    {% if avg_route_score is not none %}
+                    <span class="rounded-md bg-slate-100 px-2 py-1">Fleet avg. route score: <strong>{{ avg_route_score }}</strong></span>
+                    {% endif %}
+                </div>
+                {% endif %}
 
-                    <div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs font-medium">
-                        {% if active_shipment.checkpoints %}
-                        {% for cp in active_shipment.checkpoints|sort(attribute='sequence_order') %}
-                        <div class="flex items-center gap-1.5">
-                            {% if cp.status == 'PASSED' %}
-                            <span class="flex items-center gap-1 text-emerald-600"><i
-                                    class="fa-solid fa-circle-check"></i> {{ cp.city_name }}</span>
-                            {% elif cp.status == 'BYPASSED' %}
-                            <span class="flex items-center gap-1 text-rose-600 line-through"><i
-                                    class="fa-solid fa-circle-xmark"></i> {{ cp.city_name }}</span>
+                <!-- Route map (same data as shipment tracking page, read-only preview) -->
+                <div class="mt-3">
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-xs font-semibold text-slate-700">Route on map</p>
+                        <div class="flex flex-wrap gap-3 text-[10px] text-slate-500">
+                            <span class="inline-flex items-center gap-1"><span class="h-0.5 w-4 border-t-2 border-dashed border-supply-600"></span> Planned route</span>
+                            <span class="inline-flex items-center gap-1"><span class="h-1 w-4 rounded bg-emerald-500"></span> Path driven</span>
+                            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-sky-600 ring-2 ring-white"></span> Last GPS</span>
+                        </div>
+                    </div>
+                    <div class="relative overflow-hidden rounded-lg border border-slate-200">
+                        <div id="dashboard-route-map" class="h-72 w-full bg-slate-100"></div>
+                        <div class="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto sm:max-w-md rounded-lg bg-white/95 px-3 py-2 text-[11px] text-slate-600 shadow-md border border-slate-200/80 backdrop-blur-sm">
+                            {% if focus_latest_gps %}
+                            <span class="font-semibold text-emerald-700">Last known position</span>
+                            — {{ focus_latest_gps.speed_kmph or 0 }} km/h
+                            · {{ focus_latest_gps.timestamp.strftime('%d %b, %H:%M UTC') if focus_latest_gps.timestamp else '' }}
+                            {% elif active_route and active_route.geometry %}
+                            Route is planned; truck marker shows the origin until you start transit on the tracking page.
                             {% else %}
-                            <span class="flex items-center gap-1 text-slate-500"><i class="fa-regular fa-circle"></i> {{
-                                cp.city_name }}</span>
-                            {% endif %}
-
-                            {% if not loop.last %}
-                            <i class="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+                            No route geometry yet — optimize this shipment to draw the corridor here.
                             {% endif %}
                         </div>
-                        {% endfor %}
-                        {% else %}
-                        <p class="text-[11px] text-slate-400 italic">No intermediate city checkpoints created for this
-                            route.</p>
-                        {% endif %}
                     </div>
                 </div>
 
+                <div class="mt-3 border-t border-slate-100 pt-3">
+                    <p class="text-[11px] font-semibold uppercase text-slate-500 mb-2">City checkpoints</p>
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        {% if active_shipment.checkpoints %}
+                        {% for cp in active_shipment.checkpoints|sort(attribute='sequence_order') %}
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5
+                            {% if cp.status == 'PASSED' %}bg-emerald-50 text-emerald-700
+                            {% elif cp.status == 'BYPASSED' %}bg-rose-50 text-rose-700 line-through
+                            {% else %}bg-slate-100 text-slate-600{% endif %}">
+                            {% if cp.status == 'PASSED' %}<i class="fa-solid fa-check text-[10px]"></i>
+                            {% elif cp.status == 'BYPASSED' %}<i class="fa-solid fa-xmark text-[10px]"></i>
+                            {% else %}<i class="fa-regular fa-circle text-[10px]"></i>{% endif %}
+                            {{ cp.city_name }}
+                        </span>
+                        {% if not loop.last %}<i class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>{% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-slate-400 italic">Checkpoints appear after route optimization.</p>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
             {% else %}
-            <!-- Empty State when no active shipment is selected -->
-            <div
-                class="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 p-8 text-center">
-                <i class="fa-solid fa-map-location-dot text-3xl text-slate-300"></i>
-                <p class="mt-2 font-display text-sm font-semibold text-slate-700">No Active Shipment Focus</p>
-                <p class="text-xs text-slate-500">Select a shipment from the table below to inspect its route telemetry.
-                </p>
+            <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/60 p-10 text-center">
+                <i class="fa-solid fa-truck-ramp-box text-3xl text-slate-300"></i>
+                <p class="mt-3 font-display font-semibold text-slate-800">No shipments yet</p>
+                <p class="mt-1 max-w-sm text-sm text-slate-500">Register a truck, then create your first shipment to see routes, costs, and live tracking here.</p>
+                <a href="{{ url_for('shipment.create_shipment') }}" class="mt-4 text-sm font-semibold text-supply-600 hover:text-supply-700">Create shipment →</a>
             </div>
             {% endif %}
         </div>
 
-        <!-- Right Workspace: Agentic Audit & Reasoning Log (5 Cols) -->
-        <div class="flex flex-col lg:col-span-5">
-            <div
-                class="flex flex-1 flex-col justify-between rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-
-                <div>
-                    <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div class="flex items-center gap-2">
-                            <div
-                                class="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs text-purple-700">
-                                <i class="fa-solid fa-brain"></i>
-                            </div>
-                            <h3 class="font-display text-sm font-bold text-slate-900">LLM Multi-Agent Audit Log</h3>
+        <!-- Alerts sidebar -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            {% if needs_attention %}
+            <div class="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 shadow-sm">
+                <h3 class="flex items-center gap-2 text-sm font-bold text-amber-900">
+                    <i class="fa-solid fa-bell"></i> Needs your attention
+                </h3>
+                <ul class="mt-2 space-y-2">
+                    {% for s in needs_attention %}
+                    <li class="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-amber-100 px-3 py-2 text-xs">
+                        <div class="min-w-0">
+                            <span class="font-semibold text-slate-800 truncate block">{{ s.cargo_type or 'Shipment' }} #{{ s.id[:8]|upper }}</span>
+                            <span class="text-slate-500">
+                                {% if not s.truck_id %}Missing truck assignment
+                                {% else %}{{ s.status.replace('_', ' ').title() }}{% endif %}
+                            </span>
                         </div>
-                        <span
-                            class="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-purple-700">
-                            Agent Mesh
-                        </span>
+                        <a href="{{ url_for('auth.dashboard', focus_shipment_id=s.id) }}" class="shrink-0 font-semibold text-supply-600 hover:underline">View</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm flex-1">
+                <h3 class="text-sm font-bold text-slate-900">Active disruptions</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">Weather, protests, and road events that may trigger reroutes.</p>
+                <div class="mt-3 space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                    {% if active_disruptions %}
+                    {% for d in active_disruptions %}
+                    <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5 text-xs">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-semibold text-slate-800">{{ d.type.replace('_', ' ').title() }}</span>
+                            <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase
+                                {% if d.severity in ('BLOCKING', 'HIGH') %}bg-rose-100 text-rose-700
+                                {% elif d.severity == 'MEDIUM' %}bg-amber-100 text-amber-800
+                                {% else %}bg-slate-200 text-slate-700{% endif %}">{{ d.severity }}</span>
+                        </div>
+                        <p class="mt-1 text-slate-600">{{ d.affected_city or 'Corridor' }}{% if d.description %} — {{ d.description[:80] }}{% if d.description|length > 80 %}…{% endif %}{% endif %}</p>
                     </div>
-
-                    <!-- Dynamic Reroute Logs Iteration -->
-                    <div class="space-y-3">
-                        {% if reroute_logs %}
-                        {% for log in reroute_logs[:3] %}
-                        <div class="rounded-lg border border-slate-200/80 bg-slate-50/90 p-3 text-xs space-y-1.5">
-                            <div class="flex items-center justify-between font-mono text-[10px]">
-                                <span class="font-bold text-slate-800">SHIPMENT ID: #{{ log.shipment_id[:8]|upper
-                                    }}</span>
-                                <span class="text-slate-400">{{ log.created_at.strftime('%H:%M:%S UTC') if
-                                    log.created_at else '' }}</span>
-                            </div>
-
-                            <div class="flex items-center gap-2 font-mono text-[11px]">
-                                <span class="rounded bg-rose-100 px-1.5 py-0.5 font-bold text-rose-700">Bypassed: {{
-                                    log.affected_city }}</span>
-                                <i class="fa-solid fa-arrow-right text-slate-400 text-[10px]"></i>
-                                <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-700">Injected:
-                                    {{ log.bypass_city }}</span>
-                            </div>
-
-                            <p
-                                class="text-[11px] leading-relaxed text-slate-600 bg-white p-2 rounded border border-slate-100">
-                                <i class="fa-solid fa-quote-left text-slate-300 mr-1"></i>{{ log.llm_reasoning }}
-                            </p>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="rounded-lg border border-slate-200/80 bg-slate-50 p-4 text-center">
-                            <i class="fa-solid fa-robot text-xl text-slate-300"></i>
-                            <p class="mt-1 text-xs font-medium text-slate-600">No Reroute Audit Logs</p>
-                            <p class="text-[11px] text-slate-400">All shipments are currently operating on their primary
-                                OSRM paths.</p>
-                        </div>
-                        {% endif %}
-                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-sm text-slate-500 py-4 text-center">No active disruptions. Your routes are clear.</p>
+                    {% endif %}
                 </div>
+            </div>
 
-                <!-- System Guardrail Verification Status -->
-                <div class="mt-4 border-t border-slate-100 pt-3">
-                    <div
-                        class="rounded-lg border border-emerald-200/80 bg-emerald-50/50 p-2.5 text-xs text-emerald-900">
-                        <div class="flex items-center gap-2 font-bold font-mono">
-                            <i class="fa-solid fa-shield-check text-emerald-600"></i>
-                            Hard Guardrail Verification
+            <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900">Recent reroute decisions</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">When the system detours around blocked cities, the reason is logged here.</p>
+                <div class="mt-3 space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                    {% if reroute_logs %}
+                    {% for log in reroute_logs[:4] %}
+                    <div class="rounded-lg border border-slate-100 p-2.5 text-xs">
+                        <div class="flex justify-between text-[10px] text-slate-400">
+                            <span>#{{ log.shipment_id[:8]|upper }}</span>
+                            <span>{{ log.created_at.strftime('%d %b %H:%M') if log.created_at else '' }}</span>
                         </div>
-                        <p class="mt-1 text-[11px] text-emerald-800">
-                            Axle limits, height clearances, and PostGIS buffer intersections are continuously validated
-                            before route commit.
+                        <p class="mt-1 font-medium text-slate-800">
+                            {{ log.affected_city }} → {{ log.bypass_city }}
                         </p>
+                        <p class="mt-1 text-slate-600 leading-relaxed">{{ log.llm_reasoning[:160] }}{% if log.llm_reasoning|length > 160 %}…{% endif %}</p>
                     </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-sm text-slate-500 py-3 text-center">No reroutes recorded — all trips on planned routes.</p>
+                    {% endif %}
                 </div>
-
             </div>
         </div>
-
     </div>
 
-    <!-- ================= SECTION 3: SHIPMENTS & FLEET DISPATCH TABLE ================= -->
-    <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-md">
-
-        <div class="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+    <!-- Shipments table -->
+    <div class="rounded-xl border border-slate-200/90 bg-white/90 p-4 shadow-sm">
+        <div class="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="font-display text-base font-bold text-slate-900">Active Shipments & Route Telemetry</h3>
-                <p class="text-xs text-slate-500">Live operational ledger synced with OSRM and telematics</p>
+                <h3 class="font-display text-base font-bold text-slate-900">Your shipments</h3>
+                <p class="text-xs text-slate-500">{{ shipments|length }} total · click a row to highlight on the dashboard</p>
             </div>
-
-            <div class="flex items-center gap-2">
-                <span class="font-mono text-xs text-slate-500">Showing {{ shipments|length }} record(s)</span>
-            </div>
+            <a href="{{ url_for('shipment.manage_shipments') }}" class="text-xs font-semibold text-supply-600 hover:text-supply-700">Manage statuses →</a>
         </div>
 
-        <!-- Table Container -->
         <div class="mt-4 overflow-x-auto">
             <table class="w-full text-left text-xs text-slate-600">
-                <thead class="bg-slate-50 font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <thead class="bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
                     <tr>
-                        <th class="px-3 py-2.5">Shipment ID</th>
-                        <th class="px-3 py-2.5">Truck / Reg</th>
-                        <th class="px-3 py-2.5">Cargo Details</th>
-                        <th class="px-3 py-2.5">Origin / Destination PIN</th>
+                        <th class="px-3 py-2.5">Shipment</th>
+                        <th class="px-3 py-2.5">Route</th>
+                        <th class="px-3 py-2.5">Truck</th>
                         <th class="px-3 py-2.5">Status</th>
-                        <th class="px-3 py-2.5">Optimization Score $J(r)$</th>
+                        <th class="px-3 py-2.5">Plan</th>
                         <th class="px-3 py-2.5 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-sans">
-                    {% if shipments %}
+                <tbody class="divide-y divide-slate-100">
                     {% for shipment in shipments %}
-                    <tr class="hover:bg-slate-50/80 transition-colors">
-
-                        <!-- Shipment ID -->
-                        <td class="px-3 py-3 font-mono font-bold text-supply-600">
-                            #{{ shipment.id[:8]|upper }}
+                    {% set route = shipment.routes|selectattr('is_active')|first %}
+                    <tr class="hover:bg-slate-50/80 transition-colors {% if active_shipment and shipment.id == active_shipment.id %}bg-supply-50/40{% endif %}">
+                        <td class="px-3 py-3">
+                            <div class="font-semibold text-slate-900">{{ shipment.cargo_type or 'General' }}</div>
+                            <div class="font-mono text-[10px] text-supply-600">#{{ shipment.id[:8]|upper }}</div>
+                            <div class="text-[10px] text-slate-400">{{ shipment.total_weight_kg or 0 }} kg · {{ shipment.priority }}</div>
                         </td>
-
-                        <!-- Truck Vehicle -->
+                        <td class="px-3 py-3">
+                            <div>{{ shipment.origin_pin or '—' }} → {{ shipment.destination_pin or '—' }}</div>
+                            {% if route %}
+                            <div class="text-[10px] text-slate-500">{{ route.distance_km or '—' }} km · ₹{{ "{:,.0f}".format((route.fuel_cost or 0) + (route.toll_cost or 0)) }} est.</div>
+                            {% endif %}
+                        </td>
                         <td class="px-3 py-3">
                             {% if shipment.truck %}
-                            <div class="font-semibold text-slate-900">{{ shipment.truck.registration_number }}</div>
-                            <div class="text-[10px] font-mono text-slate-400">
-                                {{ shipment.truck.truck_type or 'Standard' }} · {{ shipment.truck.capacity_tons or 'N/A'
-                                }} Tons
-                            </div>
+                            <span class="font-medium text-slate-800">{{ shipment.truck.registration_number }}</span>
+                            <span class="block text-[10px] text-slate-400">{{ shipment.truck.truck_type or '' }}</span>
                             {% else %}
-                            <span class="text-slate-400 italic">Unassigned</span>
+                            <span class="text-amber-600 font-medium">Assign truck</span>
                             {% endif %}
                         </td>
-
-                        <!-- Cargo Details -->
                         <td class="px-3 py-3">
-                            <span class="font-medium text-slate-800">{{ shipment.cargo_type or 'General' }}</span>
-                            <div class="text-[10px] font-mono text-slate-400">
-                                Weight: {{ shipment.total_weight_kg or 0 }} kg
-                            </div>
+                            {% set sst = shipment.status %}
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold
+                                {% if sst == 'EN_ROUTE' %}bg-emerald-100 text-emerald-800
+                                {% elif sst == 'REROUTED' %}bg-amber-100 text-amber-800
+                                {% elif sst == 'DELIVERED' %}bg-slate-200 text-slate-700
+                                {% elif sst == 'DELAYED' %}bg-rose-100 text-rose-800
+                                {% elif sst == 'CREATED' %}bg-blue-100 text-blue-800
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ sst.replace('_', ' ').title() }}
+                            </span>
                         </td>
-
-                        <!-- Origin -> Destination PINs -->
-                        <td class="px-3 py-3">
-                            <div class="font-mono text-slate-800">
-                                {{ shipment.origin_pin or 'Origin' }} <i
-                                    class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i> {{
-                                shipment.destination_pin or 'Dest' }}
-                            </div>
-                            <div class="text-[10px] font-mono text-slate-400">
-                                Priority: <span class="font-semibold text-slate-700">{{ shipment.priority }}</span>
-                            </div>
-                        </td>
-
-                        <!-- Status Badge -->
-                        <td class="px-3 py-3">
-                            {% if shipment.status == 'CREATED' %}
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
-                                <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span> CREATED
-                            </span>
-                            {% elif shipment.status == 'EN_ROUTE' %}
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> EN_ROUTE
-                            </span>
-                            {% elif shipment.status == 'REROUTED' %}
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
-                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> REROUTED
-                            </span>
-                            {% elif shipment.status == 'DELAYED' %}
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
-                                <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> DELAYED
-                            </span>
+                        <td class="px-3 py-3 font-mono text-[11px]">
+                            {% if route and route.optimization_score %}
+                            Score {{ route.optimization_score|round(3) }}
                             {% else %}
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
-                                {{ shipment.status }}
-                            </span>
+                            <span class="text-slate-400">—</span>
                             {% endif %}
                         </td>
-
-                        <!-- Route Optimization Score -->
-                        <td class="px-3 py-3 font-mono font-semibold text-slate-700">
-                            {% if shipment.routes %}
-                            {% set active_route = shipment.routes|selectattr("is_active")|first %}
-                            {% if active_route and active_route.optimization_score %}
-                            {{ active_route.optimization_score|round(4) }}
-                            {% else %}
-                            <span class="text-slate-400">0.0000</span>
-                            {% endif %}
-                            {% else %}
-                            <span class="text-slate-400">N/A</span>
-                            {% endif %}
+                        <td class="px-3 py-3 text-right whitespace-nowrap">
+                            <a href="?focus_shipment_id={{ shipment.id }}" class="mr-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200">Highlight</a>
+                            <a href="{{ url_for('shipment.get_shipment_detail', shipment_id=shipment.id) }}" class="rounded bg-supply-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-supply-700">Track</a>
                         </td>
-
-                        <!-- Action Link -->
-                        <td class="px-3 py-3 text-right">
-                            <a href="?focus_shipment_id={{ shipment.id }}"
-                                class="rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-supply-600 hover:text-white transition-colors">
-                                Inspect
-                            </a>
-                        </td>
-
                     </tr>
-                    {% endfor %}
                     {% else %}
                     <tr>
-                        <td colspan="7" class="px-3 py-6 text-center text-slate-400 italic">
-                            No shipments found for this account.
+                        <td colspan="6" class="px-3 py-8 text-center text-slate-500">
+                            No shipments linked to your account.
+                            <a href="{{ url_for('shipment.create_shipment') }}" class="block mt-2 font-semibold text-supply-600">Create one now</a>
                         </td>
                     </tr>
-                    {% endif %}
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
-
     </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if active_shipment %}
+<script>
+(function () {
+    const mapEl = document.getElementById('dashboard-route-map');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    const originLat = parseFloat("{{ active_shipment.origin_lat }}");
+    const originLon = parseFloat("{{ active_shipment.origin_lon }}");
+    const destLat = parseFloat("{{ active_shipment.destination_lat }}");
+    const destLon = parseFloat("{{ active_shipment.destination_lon }}");
+
+    const checkpoints = [
+        {% for cp in focus_checkpoints %}
+        {
+            order: {{ cp.sequence_order }},
+            name: {{ cp.city_name|tojson }},
+            lat: parseFloat("{{ cp.latitude }}"),
+            lon: parseFloat("{{ cp.longitude }}"),
+            status: {{ cp.status|tojson }}
+        },
+        {% endfor %}
+    ];
+
+    const gpsTrail = [
+        {% for g in focus_gps_trail %}
+        [parseFloat("{{ g.latitude }}"), parseFloat("{{ g.longitude }}")],
+        {% endfor %}
+    ];
+
+    const lastGps = {% if focus_latest_gps %}{
+        lat: parseFloat("{{ focus_latest_gps.latitude }}"),
+        lon: parseFloat("{{ focus_latest_gps.longitude }}"),
+        speed: parseFloat("{{ focus_latest_gps.speed_kmph or 0 }}"),
+        heading: parseFloat("{{ focus_latest_gps.heading or 0 }}")
+    }{% else %}null{% endif %};
+
+    const map = L.map('dashboard-route-map', { zoomControl: true, scrollWheelZoom: true })
+        .setView([originLat, originLon], 6);
+
+    // OpenStreetMap — no API key (CARTO basemaps now require carto.com API key)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+    }).addTo(map);
+
+    const pin = (label, bg) => L.divIcon({
+        className: '',
+        html: `<div class="w-7 h-7 rounded-full ${bg} text-white text-xs font-bold flex items-center justify-center shadow border-2 border-white">${label}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+
+    L.marker([originLat, originLon], { icon: pin('A', 'bg-emerald-600') })
+        .addTo(map)
+        .bindPopup(`<strong>Origin</strong><br>{{ active_shipment.origin_pin or "Start" }}`);
+
+    L.marker([destLat, destLon], { icon: pin('B', 'bg-rose-600') })
+        .addTo(map)
+        .bindPopup(`<strong>Destination</strong><br>{{ active_shipment.destination_pin or "End" }}`);
+
+    checkpoints.forEach(cp => {
+        const color = cp.status === 'BYPASSED' ? 'border-rose-500 opacity-60' : 'border-indigo-600';
+        const icon = L.divIcon({
+            className: '',
+            html: `<div class="w-3 h-3 rounded-full bg-white border-2 ${color} shadow-sm" title="${cp.name}"></div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        });
+        L.marker([cp.lat, cp.lon], { icon }).addTo(map)
+            .bindPopup(`<strong>${cp.name}</strong><br><span class="text-xs">${cp.status}</span>`);
+    });
+
+    let boundsGroup = L.featureGroup([
+        L.marker([originLat, originLon]),
+        L.marker([destLat, destLon])
+    ]);
+
+    {% if active_route and active_route.geometry %}
+    try {
+        const routeGeometry = {{ active_route.geometry | tojson }};
+        const routeLayer = L.geoJSON(routeGeometry, {
+            style: {
+                color: '#0284c7',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '8, 6'
+            }
+        }).addTo(map);
+        boundsGroup.addLayer(routeLayer);
+    } catch (e) {
+        console.warn('Dashboard route geometry:', e);
+    }
+    {% endif %}
+
+    if (gpsTrail.length > 1) {
+        const driven = L.polyline(gpsTrail, { color: '#10b981', weight: 5, opacity: 0.9 }).addTo(map);
+        boundsGroup.addLayer(driven);
+    }
+
+    const truckLat = lastGps ? lastGps.lat : originLat;
+    const truckLon = lastGps ? lastGps.lon : originLon;
+    const truckIcon = L.divIcon({
+        className: '',
+        html: `<div class="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-lg border-2 border-white ring-2 ring-sky-300">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg>
+        </div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+    L.marker([truckLat, truckLon], { icon: truckIcon, zIndexOffset: 1000 })
+        .addTo(map)
+        .bindPopup(lastGps
+            ? `<strong>Truck (last GPS)</strong><br>${lastGps.speed.toFixed(0)} km/h`
+            : '<strong>Truck</strong><br>At origin — start transit for live updates');
+
+    boundsGroup.addLayer(L.marker([truckLat, truckLon]));
+    map.fitBounds(boundsGroup.getBounds(), { padding: [36, 36], maxZoom: 8 });
+
+    setTimeout(function () { map.invalidateSize(); }, 200);
+    window.addEventListener('resize', function () { map.invalidateSize(); });
+})();
+</script>
+{% endif %}
 {% endblock %}
